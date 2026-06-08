@@ -96,14 +96,22 @@ export async function addAdmin(email: string, password: string): Promise<AdminUs
     throw new Error("Password must be at least 8 characters.");
   }
 
+  const sql = getSql();
   let user = await getUserByEmail(normalized);
+
   if (!user) {
+    // New account: must be created with role = 'admin' (not the investor default).
     user = await createPortalUser(normalized, password, "admin");
   } else if (await isAdminUser(user.id, user.email)) {
     throw new Error("This user is already an admin.");
   } else {
-    const sql = getSql();
-    await sql`UPDATE portal_users SET role = 'admin' WHERE id = ${user.id}`;
+    // Promote an existing investor account to admin and set the provided password.
+    const password_hash = await bcrypt.hash(password, 12);
+    await sql`
+      UPDATE portal_users
+      SET role = 'admin', password_hash = ${password_hash}
+      WHERE id = ${user.id}
+    `;
   }
 
   return {
