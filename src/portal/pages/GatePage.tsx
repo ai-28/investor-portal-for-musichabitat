@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { C, FONT_DISPLAY } from "@/portal/tokens";
 import { Shell } from "@/portal/ui/Shell";
@@ -28,10 +28,10 @@ export function GatePage({
   const [mode, setMode] = useState<AuthMode>("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [formBusy, setFormBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [info, setInfo] = useState("");
   const [mounted, setMounted] = useState(false);
+  const finishStartedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -41,8 +41,13 @@ export function GatePage({
     if (user?.email) setEmail(user.email);
   }, [user?.email]);
 
-  const finishAuth = async () => {
-    setBusy(true);
+  useEffect(() => {
+    if (!user) finishStartedRef.current = false;
+  }, [user]);
+
+  const finishAuth = useCallback(async () => {
+    if (finishStartedRef.current) return;
+    finishStartedRef.current = true;
     setErr("");
     try {
       const state = await patchPortalState({ offering_type: offeringType });
@@ -56,11 +61,15 @@ export function GatePage({
       );
       go(nextRoute);
     } catch (e) {
+      finishStartedRef.current = false;
       setErr(e instanceof Error ? e.message : "Could not save your profile.");
-    } finally {
-      setBusy(false);
     }
-  };
+  }, [go, offeringType, refreshState]);
+
+  useEffect(() => {
+    if (!mounted || authLoading || !user || !hydrated) return;
+    void finishAuth();
+  }, [mounted, authLoading, user, hydrated, finishAuth]);
 
   const credentialsSignIn = async () => {
     const result = await signIn("credentials", {
@@ -74,13 +83,11 @@ export function GatePage({
     if (result?.ok === false) {
       throw new Error("Sign in failed.");
     }
-    await finishAuth();
   };
 
   const handleSignUp = async () => {
-    setBusy(true);
+    setFormBusy(true);
     setErr("");
-    setInfo("");
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
@@ -99,20 +106,19 @@ export function GatePage({
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Sign up failed.");
     } finally {
-      setBusy(false);
+      setFormBusy(false);
     }
   };
 
   const handleSignIn = async () => {
-    setBusy(true);
+    setFormBusy(true);
     setErr("");
-    setInfo("");
     try {
       await credentialsSignIn();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Sign in failed.");
     } finally {
-      setBusy(false);
+      setFormBusy(false);
     }
   };
 
@@ -134,28 +140,21 @@ export function GatePage({
   if (user) {
     return (
       <Shell onBack={onBack}>
-        <div style={{ paddingTop: 40, textAlign: "center" }}>
-          <div style={{ fontSize: 34 }}>✓</div>
-          <Kicker color={accent}>Signed in</Kicker>
-          <H size={28}>Welcome back</H>
-          <p style={{ color: C.textDim, fontSize: 14, margin: "8px 0 28px" }}>
-            {user.email}
-          </p>
+        <div style={{ paddingTop: 80, textAlign: "center", color: C.textDim }}>
+          {err ? (
+            <>
+              <p style={{ color: C.red, fontSize: 13, marginBottom: 16 }}>{err}</p>
+              <Btn variant="amber" onClick={() => void finishAuth()}>
+                Try again
+              </Btn>
+              <Btn variant="ghost" onClick={() => signOut()}>
+                Sign out
+              </Btn>
+            </>
+          ) : (
+            "Loading…"
+          )}
         </div>
-        {err ? (
-          <div style={{ color: C.red, fontSize: 13, marginBottom: 10, textAlign: "center" }}>
-            {err}
-          </div>
-        ) : null}
-        <Btn variant="amber" onClick={finishAuth} disabled={busy}>
-          {busy ? "Please wait…" : `Continue to ${title}`}
-        </Btn>
-        <Btn variant="ghost" onClick={() => signOut()} disabled={busy}>
-          Sign out
-        </Btn>
-        <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 12 }}>
-          You can pick up where you left off.
-        </p>
       </Shell>
     );
   }
@@ -179,7 +178,6 @@ export function GatePage({
             onClick={() => {
               setMode(m);
               setErr("");
-              setInfo("");
             }}
             style={{
               flex: 1,
@@ -215,17 +213,12 @@ export function GatePage({
         placeholder={mode === "signup" ? "At least 6 characters" : "Your password"}
       />
 
-      {err && (
+      {err ? (
         <div style={{ color: C.red, fontSize: 13, marginBottom: 10 }}>{err}</div>
-      )}
-      {info && (
-        <div style={{ color: C.teal, fontSize: 13, marginBottom: 10, lineHeight: 1.5 }}>
-          {info}
-        </div>
-      )}
+      ) : null}
 
-      <Btn variant="amber" onClick={submit} disabled={busy || !email.trim() || !password}>
-        {busy
+      <Btn variant="amber" onClick={submit} disabled={formBusy || !email.trim() || !password}>
+        {formBusy
           ? "Please wait…"
           : mode === "signup"
             ? "Create account & continue"
