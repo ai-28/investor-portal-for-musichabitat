@@ -1,6 +1,6 @@
+import { getAdminExclusions } from "@/lib/admin/admins";
 import { getSql } from "@/lib/db/client";
 import type { InvestorProfileRow } from "@/lib/portal/db-types";
-import { getAdminEmails } from "@/lib/auth/admin";
 
 export interface AdminInvestorRow {
   id: string;
@@ -43,8 +43,16 @@ function mapRow(row: Record<string, unknown>): AdminInvestorRow {
   };
 }
 
+function isExcludedAdmin(
+  row: AdminInvestorRow,
+  adminIds: Set<string>,
+  adminEmails: Set<string>,
+): boolean {
+  return adminIds.has(row.id) || adminEmails.has(row.email.trim().toLowerCase());
+}
+
 export async function listInvestorsForAdmin(): Promise<AdminInvestorRow[]> {
-  const adminEmails = new Set(getAdminEmails());
+  const { ids: adminIds, emails: adminEmails } = await getAdminExclusions();
   const sql = getSql();
   const rows = await sql`
     SELECT
@@ -65,16 +73,18 @@ export async function listInvestorsForAdmin(): Promise<AdminInvestorRow[]> {
       p.updated_at::text AS profile_updated_at
     FROM portal_users u
     LEFT JOIN investor_profiles p ON p.id = u.id
+    WHERE u.role = 'investor'
     ORDER BY u.created_at DESC
   `;
   return rows
     .map((r) => mapRow(r as Record<string, unknown>))
-    .filter((r) => !adminEmails.has(r.email.toLowerCase()));
+    .filter((r) => !isExcludedAdmin(r, adminIds, adminEmails));
 }
 
 export async function getInvestorForAdmin(
   userId: string,
 ): Promise<AdminInvestorRow | null> {
+  const { ids: adminIds, emails: adminEmails } = await getAdminExclusions();
   const sql = getSql();
   const rows = await sql`
     SELECT
@@ -95,11 +105,11 @@ export async function getInvestorForAdmin(
       p.updated_at::text AS profile_updated_at
     FROM portal_users u
     LEFT JOIN investor_profiles p ON p.id = u.id
-    WHERE u.id = ${userId}
+    WHERE u.id = ${userId} AND u.role = 'investor'
     LIMIT 1
   `;
   if (!rows[0]) return null;
   const row = mapRow(rows[0] as Record<string, unknown>);
-  if (getAdminEmails().includes(row.email.toLowerCase())) return null;
+  if (isExcludedAdmin(row, adminIds, adminEmails)) return null;
   return row;
 }

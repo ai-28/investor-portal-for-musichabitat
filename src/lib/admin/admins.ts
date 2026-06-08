@@ -30,6 +30,17 @@ export async function isAdminUser(userId: string, email: string): Promise<boolea
   return isAdminInDb(userId);
 }
 
+export async function getAdminExclusions(): Promise<{
+  ids: Set<string>;
+  emails: Set<string>;
+}> {
+  const admins = await listAdmins();
+  return {
+    ids: new Set(admins.map((a) => a.id)),
+    emails: new Set(admins.map((a) => normalizeEmail(a.email))),
+  };
+}
+
 export async function listAdmins(): Promise<AdminUserRow[]> {
   const sql = getSql();
   const envEmails = new Set(
@@ -129,7 +140,13 @@ export async function removeAdmin(
     );
   }
 
-  await sql`UPDATE portal_users SET role = 'investor' WHERE id = ${targetUserId}`;
+  const deleted = await sql`
+    DELETE FROM portal_users WHERE id = ${targetUserId} AND role = 'admin'
+    RETURNING id
+  `;
+  if (!deleted[0]) {
+    throw new Error("Could not delete admin user.");
+  }
 }
 
 export async function updateAdminProfile(

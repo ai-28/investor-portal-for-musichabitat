@@ -75,7 +75,7 @@ export function AdminUsersClient() {
   };
 
   const handleRemove = async (id: string) => {
-    if (!confirm("Remove this admin? They will lose ops access.")) return;
+    if (!confirm("Delete this admin account? They will be removed from the database.")) return;
     setRemovingId(id);
     setErr("");
     try {
