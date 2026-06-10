@@ -4,6 +4,7 @@ import path from "path";
 import {
   getDocuSignConsentUrl,
   getDocuSignOAuthRedirectUri,
+  canReadDocuSignPrivateKey,
   isDocuSignConfigured,
 } from "@/lib/docusign/config";
 
@@ -37,6 +38,9 @@ export async function GET() {
       privateKeyInline: Boolean(process.env.DOCUSIGN_RSA_PRIVATE_KEY),
       privateKeyPath: Boolean(keyPath),
       privateKeyFileExists: keyFileExists,
+      privateKeyReadable: canReadDocuSignPrivateKey(),
+      nextAuthUrl: Boolean(process.env.NEXTAUTH_URL),
+      vercelUrl: Boolean(process.env.VERCEL_URL),
     },
   });
 }

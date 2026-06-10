@@ -9,13 +9,24 @@ export const DOCUSIGN_CEO_NAME =
 import fs from "fs";
 import path from "path";
 
+export function canReadDocuSignPrivateKey(): boolean {
+  if (process.env.DOCUSIGN_RSA_PRIVATE_KEY?.trim()) return true;
+
+  const keyPath = process.env.DOCUSIGN_RSA_PRIVATE_KEY_PATH?.trim();
+  if (!keyPath) return false;
+
+  const resolved = path.isAbsolute(keyPath)
+    ? keyPath
+    : path.join(process.cwd(), keyPath);
+  return fs.existsSync(resolved);
+}
+
 export function isDocuSignConfigured(): boolean {
   return Boolean(
     process.env.DOCUSIGN_INTEGRATION_KEY &&
       process.env.DOCUSIGN_USER_ID &&
       process.env.DOCUSIGN_ACCOUNT_ID &&
-      (process.env.DOCUSIGN_RSA_PRIVATE_KEY ||
-        process.env.DOCUSIGN_RSA_PRIVATE_KEY_PATH),
+      canReadDocuSignPrivateKey(),
   );
 }
 
@@ -49,8 +60,12 @@ export function readDocuSignPrivateKey(): string {
 }
 
 export function getAppBaseUrl(): string {
-  const url = process.env.NEXTAUTH_URL?.trim();
-  if (!url) throw new Error("NEXTAUTH_URL is not configured.");
+  const url =
+    process.env.NEXTAUTH_URL?.trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  if (!url) {
+    throw new Error("NEXTAUTH_URL is not configured.");
+  }
   return url.replace(/\/$/, "");
 }
 

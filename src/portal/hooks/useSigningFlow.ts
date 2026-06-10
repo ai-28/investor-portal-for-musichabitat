@@ -115,8 +115,15 @@ export function useSigningFlow(params: {
         return;
       }
 
-      if (data.url) {
-        window.open(data.url, "_blank", "noopener,noreferrer");
+      if (!data.url) {
+        throw new Error(
+          "DocuSign did not return a signing URL. Check server configuration.",
+        );
+      }
+
+      const popup = window.open(data.url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        window.location.assign(data.url);
       }
       await refreshStatus(true);
     } catch (err) {
