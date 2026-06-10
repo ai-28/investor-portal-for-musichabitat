@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { C, FONT_DISPLAY } from "@/portal/tokens";
 import { Shell } from "@/portal/ui/Shell";
@@ -23,7 +23,7 @@ export function GatePage({
   offeringType,
   onBack,
 }: GatePageProps) {
-  const { user, authLoading, hydrated, signOut, refreshState, go } = usePortal();
+  const { user, authLoading, signOut, refreshState, go } = usePortal();
 
   const [mode, setMode] = useState<AuthMode>("signup");
   const [email, setEmail] = useState("");
@@ -31,45 +31,35 @@ export function GatePage({
   const [formBusy, setFormBusy] = useState(false);
   const [err, setErr] = useState("");
   const [mounted, setMounted] = useState(false);
-  const finishStartedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (user?.email) setEmail(user.email);
+    if (user?.email) {
+      setEmail(user.email);
+      setMode("signin");
+    }
   }, [user?.email]);
 
-  useEffect(() => {
-    if (!user) finishStartedRef.current = false;
-  }, [user]);
-
-  const finishAuth = useCallback(async () => {
-    if (finishStartedRef.current) return;
-    finishStartedRef.current = true;
-    setErr("");
-    try {
-      const state = await patchPortalState({ offering_type: offeringType });
-      await refreshState();
-      const nextRoute = resumeRouteFromProfile(
-        state.offeringType ?? offeringType,
-        state.currentRoute,
-        state.ndaSignedFf,
-        state.ndaSignedPrivate,
-        state.currentStep,
-      );
-      go(nextRoute);
-    } catch (e) {
-      finishStartedRef.current = false;
-      setErr(e instanceof Error ? e.message : "Could not save your profile.");
-    }
+  const continueIntoTrack = useCallback(async () => {
+    const state = await patchPortalState({ offering_type: offeringType });
+    await refreshState();
+    const track = state.offeringType ?? offeringType;
+    const trackRoute =
+      track === "private" ? state.privateCurrentRoute : state.ffCurrentRoute;
+    const trackStep =
+      track === "private" ? state.privateCurrentStep : state.ffCurrentStep;
+    const nextRoute = resumeRouteFromProfile(
+      track,
+      trackRoute,
+      state.ndaSignedFf,
+      state.ndaSignedPrivate,
+      trackStep,
+    );
+      go(nextRoute, { replace: true });
   }, [go, offeringType, refreshState]);
-
-  useEffect(() => {
-    if (!mounted || authLoading || !user || !hydrated) return;
-    void finishAuth();
-  }, [mounted, authLoading, user, hydrated, finishAuth]);
 
   const credentialsSignIn = async () => {
     const result = await signIn("credentials", {
@@ -103,6 +93,7 @@ export function GatePage({
         throw new Error(data.error || "Sign up failed.");
       }
       await credentialsSignIn();
+      await continueIntoTrack();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Sign up failed.");
     } finally {
@@ -115,6 +106,7 @@ export function GatePage({
     setErr("");
     try {
       await credentialsSignIn();
+      await continueIntoTrack();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Sign in failed.");
     } finally {
@@ -123,37 +115,15 @@ export function GatePage({
   };
 
   const submit = () => {
-    if (mode === "signup") handleSignUp();
-    else handleSignIn();
+    if (mode === "signup") void handleSignUp();
+    else void handleSignIn();
   };
 
-  if (!mounted || authLoading || (user && !hydrated)) {
+  if (!mounted || authLoading) {
     return (
       <Shell onBack={onBack}>
         <div style={{ paddingTop: 80, textAlign: "center", color: C.textDim }}>
           Loading…
-        </div>
-      </Shell>
-    );
-  }
-
-  if (user) {
-    return (
-      <Shell onBack={onBack}>
-        <div style={{ paddingTop: 80, textAlign: "center", color: C.textDim }}>
-          {err ? (
-            <>
-              <p style={{ color: C.red, fontSize: 13, marginBottom: 16 }}>{err}</p>
-              <Btn variant="amber" onClick={() => void finishAuth()}>
-                Try again
-              </Btn>
-              <Btn variant="ghost" onClick={() => signOut()}>
-                Sign out
-              </Btn>
-            </>
-          ) : (
-            "Loading…"
-          )}
         </div>
       </Shell>
     );
@@ -169,6 +139,41 @@ export function GatePage({
           Create an account or sign in with email and password. No confirmation email required.
         </p>
       </div>
+
+      {user ? (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            borderRadius: 8,
+            background: C.cardHi,
+            border: `1px solid ${C.line}`,
+            fontSize: 13,
+            color: C.textDim,
+            lineHeight: 1.5,
+          }}
+        >
+          Signed in as <strong style={{ color: C.text }}>{user.email}</strong>.
+          Enter your password below to continue, or{" "}
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              color: accent,
+              cursor: "pointer",
+              fontFamily: FONT_DISPLAY,
+              fontSize: 13,
+              textDecoration: "underline",
+            }}
+          >
+            sign out
+          </button>{" "}
+          to use a different account.
+        </div>
+      ) : null}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
         {(["signup", "signin"] as AuthMode[]).map((m) => (
@@ -222,7 +227,7 @@ export function GatePage({
           ? "Please wait…"
           : mode === "signup"
             ? "Create account & continue"
-            : "Sign in"}
+            : "Sign in & continue"}
       </Btn>
 
       <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 16 }}>

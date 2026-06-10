@@ -25,7 +25,9 @@ import { achInput } from "@/portal/lib/ach";
 import { achLabel, achErr } from "@/portal/data/ach-labels";
 
 export function PPDocs({ go, onBack, read, markRead }) {
-  const allDocs = [...PRIVATE.docs.company, ...PRIVATE.docs.investor];
+  const allDocs = [...PRIVATE.docs.company, ...PRIVATE.docs.investor].filter(
+    (d, i, arr) => arr.findIndex((x) => x.id === d.id) === i,
+  );
   const readCount = allDocs.filter((d) => read[d.id]).length;
   const pct = Math.round((readCount / allDocs.length) * 100);
 
@@ -58,7 +60,7 @@ export function PPDocs({ go, onBack, read, markRead }) {
         <Kicker color={C.teal}>Start Here</Kicker>
         <H size={26}>Investor Document Center</H>
         <p style={{ color: C.textDim, fontSize: 13, margin: "6px 0 0" }}>
-          Private Offering edition — priced Class B, no SAFE or Warrant.
+          Private Offering edition — review each document with your advisors.
         </p>
       </div>
 

@@ -45,14 +45,14 @@ export function PPReserve({ go, onBack, papp }) {
 
       <Card style={{ padding: "4px 16px" }}>
         {[
-          ["Instrument", "Stock Purchase & Transfer Agreement"],
-          ["Security", `${PRIVATE.shareClass} (priced)`],
-          ["Price per share", `$${PRIVATE.pricePerShare.toFixed(2)}`],
-          ["Est. shares purchased", `${shares.toLocaleString()} ${PRIVATE.shareClass}`],
+          ["Instrument", "SAFE Agreement + Warrant Agreement"],
+          ["Security", `${PRIVATE.shareClass} (via SAFE conversion)`],
+          ["Price per share", `$${PRIVATE.pricePerShare.toFixed(2)} (reference)`],
+          ["Est. shares at conversion", `${shares.toLocaleString()} ${PRIVATE.shareClass} (est.)`],
           ["Exemption", "Rule 506(c) of Regulation D"],
           ["Accreditation", "Verified before acceptance"],
-          ["Warrant", "None (F&F-only)"],
-          ["Governing docs", "Operating + Stockholders' Agreement"],
+          ["Warrant", "Per Term Sheet"],
+          ["Governing docs", "Operating Agreement + Subscription Agreement"],
         ].map(([k, v], i, arr) => (
           <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 14,
             padding: "11px 0", borderBottom: i < arr.length - 1 ? `1px solid ${C.line}` : "none",
@@ -64,9 +64,8 @@ export function PPReserve({ go, onBack, papp }) {
       </Card>
 
       <p style={{ fontSize: 11, color: C.textFaint, lineHeight: 1.5 }}>
-        Share figures are estimates based on the stated ${PRIVATE.pricePerShare.toFixed(2)} price
-        per share and your stated amount. Final figures are governed by the executed Stock Purchase
-        &amp; Transfer Agreement.
+        Share figures are estimates. Final terms are governed by the executed SAFE, Warrant,
+        and Subscription Agreement.
       </p>
 
       <Btn variant="teal" onClick={() => go("pp_ack")}>Continue to Acknowledgements</Btn>

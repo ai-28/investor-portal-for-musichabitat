@@ -1,21 +1,39 @@
 "use client";
 
-import { PDF_RENDER_IDS } from "@/portal/data/doc-config";
+import { DOC_SOURCES, PDF_RENDER_IDS } from "@/portal/data/doc-config";
+import { DOC_CENTER } from "@/portal/data/content";
+import { PRIVATE } from "@/portal/data/private-offering";
 import { resolveDocKey } from "@/portal/data/doc-aliases";
+import { pdfSourceKey } from "@/portal/lib/pdf";
 import { PrototypeView } from "@/portal/views/PrototypeView";
 import { PDFDocViewer } from "@/portal/views/PDFDocViewer";
 import { InPortalDocReader } from "@/portal/views/InPortalDocReader";
 
+function docDisplayTitle(docId: string, key: string) {
+  const row = [
+    ...DOC_CENTER.company,
+    ...DOC_CENTER.investor,
+    ...PRIVATE.docs.company,
+    ...PRIVATE.docs.investor,
+  ].find((d) => d.id === docId || d.id === key);
+  return row?.name ?? "Document";
+}
+
 export function DocViewer({ docId, onBack }) {
   const key = resolveDocKey(docId);
   if (key === "prototype") return <PrototypeView onBack={onBack} />;
-  // Term Sheet + Executive Summary → real PDF render path.
-  if (PDF_RENDER_IDS.has(docId) || PDF_RENDER_IDS.has(key)) {
-    const title = docId.startsWith("termsheet") || key === "term_sheet"
-      ? "Term Sheet" : "Executive Summary";
-    return <PDFDocViewer docId={docId} title={title} onBack={onBack} />;
+
+  const sourceKey = pdfSourceKey(docId);
+  const hasPdfSource = !!(DOC_SOURCES[sourceKey] || DOC_SOURCES[key]);
+  if (PDF_RENDER_IDS.has(docId) || PDF_RENDER_IDS.has(key) || hasPdfSource) {
+    return (
+      <PDFDocViewer
+        docId={docId}
+        title={docDisplayTitle(docId, key)}
+        onBack={onBack}
+      />
+    );
   }
-  // Everything else → in-portal reader (VERBATIM if present, else structured).
   return <InPortalDocReader docId={docId} onBack={onBack} />;
 }
 

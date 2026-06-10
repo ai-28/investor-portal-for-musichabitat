@@ -13,6 +13,17 @@ function trackLabel(track: AdminInvestorRow["offering_type"]) {
   return "—";
 }
 
+function progressLabel(inv: AdminInvestorRow): string {
+  const parts: string[] = [];
+  if (inv.ff_current_route) {
+    parts.push(`F&F step ${inv.ff_current_step ?? "—"}`);
+  }
+  if (inv.private_current_route) {
+    parts.push(`Private: ${inv.private_current_route}`);
+  }
+  return parts.length ? parts.join(" · ") : "—";
+}
+
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString();
@@ -43,7 +54,7 @@ export function AdminInvestorsClient() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: C.card, textAlign: "left" }}>
-                {["Name", "Email", "Track", "Step", "Status", "Payment", "Guardian №", "Joined", ""].map(
+                {["Name", "Email", "Last track", "Progress", "Status", "Payment", "Guardian №", "Joined", ""].map(
                   (h) => (
                     <th
                       key={h}
@@ -76,7 +87,7 @@ export function AdminInvestorsClient() {
                     <td style={{ padding: "10px 12px" }}>{inv.full_name || "—"}</td>
                     <td style={{ padding: "10px 12px", color: C.textDim }}>{inv.email}</td>
                     <td style={{ padding: "10px 12px" }}>{trackLabel(inv.offering_type)}</td>
-                    <td style={{ padding: "10px 12px" }}>{inv.current_step ?? "—"}</td>
+                    <td style={{ padding: "10px 12px" }}>{progressLabel(inv)}</td>
                     <td style={{ padding: "10px 12px" }}>{inv.application_status ?? "—"}</td>
                     <td style={{ padding: "10px 12px" }}>{inv.payment_status ?? "—"}</td>
                     <td style={{ padding: "10px 12px" }}>

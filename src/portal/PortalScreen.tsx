@@ -49,7 +49,6 @@ export function PortalScreen() {
     setPacks,
     psigned,
     setPsigned,
-    resumeRoute,
     acceptNda,
   } = usePortal();
 
@@ -92,7 +91,6 @@ export function PortalScreen() {
           trackLabel="the Circle 35 Friends & Family offering"
           onAccept={(signerName) => {
             void acceptNda("friends_family", signerName);
-            go(resumeRoute());
           }}
           onBack={() => go("gate_ff")}
         />
@@ -104,7 +102,6 @@ export function PortalScreen() {
           trackLabel="the Music Habitat Private Offering"
           onAccept={(signerName) => {
             void acceptNda("private", signerName);
-            go(resumeRoute());
           }}
           onBack={() => go("gate_private")}
         />

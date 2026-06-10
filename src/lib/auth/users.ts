@@ -26,6 +26,17 @@ export async function getUserByEmail(email: string): Promise<PortalUserRow | nul
   return (rows[0] as PortalUserRow | undefined) ?? null;
 }
 
+export async function getUserById(userId: string): Promise<PortalUserRow | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT id, email, password_hash, role, created_at::text
+    FROM portal_users
+    WHERE id = ${userId}
+    LIMIT 1
+  `;
+  return (rows[0] as PortalUserRow | undefined) ?? null;
+}
+
 export async function createPortalUser(
   email: string,
   password: string,

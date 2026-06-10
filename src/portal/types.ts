@@ -71,7 +71,10 @@ export interface PortalContextValue {
   resumeRoute: () => string;
   refreshState: () => Promise<void>;
   markApplicationSubmitted: () => Promise<void>;
-  recordPaymentStatus: (status: "pending" | "authorized" | "cleared" | "failed") => Promise<void>;
+  recordPaymentStatus: (
+    status: "pending" | "authorized" | "cleared" | "failed",
+    track?: OfferingType,
+  ) => Promise<void>;
   acceptNda: (track: OfferingType, signerName?: string) => Promise<void>;
 }
 

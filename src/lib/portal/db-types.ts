@@ -21,6 +21,10 @@ export interface InvestorProfileRow {
   referrer_rejected: boolean;
   current_step: number;
   current_route: string | null;
+  ff_current_step: number;
+  ff_current_route: string | null;
+  private_current_step: number;
+  private_current_route: string | null;
   amount_cents: number | null;
   accredited_confirmed: boolean;
   application_status: ApplicationStatus;
@@ -54,6 +58,10 @@ export interface PortalStatePayload {
   psigned: SignedMap;
   currentStep: number;
   currentRoute: string | null;
+  ffCurrentStep: number;
+  ffCurrentRoute: string | null;
+  privateCurrentStep: number;
+  privateCurrentRoute: string | null;
   offeringType: OfferingType | null;
   ndaSignedFf: boolean;
   ndaSignedPrivate: boolean;
@@ -65,6 +73,10 @@ export interface PortalStatePatch {
   referrer_rejected?: boolean;
   current_step?: number;
   current_route?: string;
+  ff_current_step?: number;
+  ff_current_route?: string;
+  private_current_step?: number;
+  private_current_route?: string;
   full_name?: string;
   phone?: string;
   email?: string;

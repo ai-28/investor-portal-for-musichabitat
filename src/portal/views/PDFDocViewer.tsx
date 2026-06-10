@@ -8,11 +8,42 @@ import { H, Kicker } from "@/portal/ui/Typography";
 import { Btn } from "@/portal/ui/Button";
 import { Card } from "@/portal/ui/Card";
 
-import { downloadTermSheetPDF, pdfSourceKey } from "@/portal/lib/pdf";
+import { downloadExecSummaryPDF, downloadTermSheetPDF, pdfSourceKey } from "@/portal/lib/pdf";
 import { DOC_SOURCES } from "@/portal/data/doc-config";
 
+function downloadPdf(src: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = src;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function pdfDownloadName(sourceKey: string, src: string) {
+  const known: Record<string, string> = {
+    execsum: "MusicHabitat_Executive_Summary_FF.pdf",
+    term_sheet: "MusicHabitat_TermSheet_Private506c.pdf",
+    bizplan: "MusicHabitat_BusinessPlan.pdf",
+    deck: "MusicHabitat_FF_PitchDeck.pdf",
+    model: "MusicHabitat_Financial_Model.pdf",
+    services: "MusicHabitat_StageBid_Services.pdf",
+    proceeds: "MusicHabitat_Use_of_Proceeds.pdf",
+    safe: "MusicHabitat_SAFE_Private506c.pdf",
+    warrant: "MusicHabitat_Warrant_Private506c.pdf",
+    operating: "MusicHabitat_Operating_Agreement.pdf",
+    subscription: "MusicHabitat_Subscription_Private506c.pdf",
+  };
+  if (known[sourceKey]) return known[sourceKey];
+  const file = decodeURIComponent(src.split("/").pop() || "document.pdf");
+  return file.replace(/\s+/g, "_");
+}
+
 export function PDFDocViewer({ docId, title, onBack }) {
-  const src = DOC_SOURCES[pdfSourceKey(docId)] || "";
+  const sourceKey = pdfSourceKey(docId);
+  const src = DOC_SOURCES[sourceKey] || "";
+  const downloadName = pdfDownloadName(sourceKey, src);
 
   return (
     <Shell onBack={onBack}>
@@ -39,8 +70,11 @@ export function PDFDocViewer({ docId, title, onBack }) {
               style={{ width: "100%", height: "100%", border: "none" }}
             />
           </div>
-          <Btn variant="amber" onClick={() => window.open(src, "_blank")}>
-            Open / Download PDF
+          <Btn variant="amber" onClick={() => downloadPdf(src, downloadName)}>
+            Download PDF
+          </Btn>
+          <Btn variant="ghost" onClick={() => window.open(src, "_blank")}>
+            Open in New Tab
           </Btn>
         </>
       ) : (

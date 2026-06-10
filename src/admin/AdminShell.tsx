@@ -8,6 +8,7 @@ import { C, FONT_BODY, FONT_DISPLAY } from "@/portal/tokens";
 
 const NAV = [
   { href: "/admin/investors", label: "Investors" },
+  { href: "/admin/payments", label: "Payments" },
   { href: "/admin/users", label: "Admin users" },
   { href: "/admin/profile", label: "Profile" },
 ] as const;

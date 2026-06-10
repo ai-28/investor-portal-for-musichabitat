@@ -30,7 +30,7 @@ export function PPAck({ go, onBack, packs, setPacks }) {
     ["priced", "I understand I am purchasing priced Class B Preferred stock directly — not a convertible instrument — and the price reflects the company's current stated valuation."],
     ["noliquidity", "I understand there is no public market for these shares and resale is restricted."],
     ["accredited", "I confirm I am an accredited investor and consent to verification of my status as required under Rule 506(c)."],
-    ["governance", "I have reviewed the Operating Agreement and Stockholders' Agreement that govern Class B holders."],
+    ["governance", "I have reviewed the Operating Agreement and the Subscription Agreement that govern this offering."],
     ["advisors", "I have had the opportunity to consult my own legal, financial, and tax advisors."],
   ];
   const allChecked = ITEMS.every(([k]) => packs[k]);

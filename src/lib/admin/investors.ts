@@ -11,9 +11,14 @@ export interface AdminInvestorRow {
   offering_type: InvestorProfileRow["offering_type"];
   current_step: number | null;
   current_route: string | null;
+  ff_current_step: number | null;
+  ff_current_route: string | null;
+  private_current_step: number | null;
+  private_current_route: string | null;
   amount_cents: number | null;
   application_status: InvestorProfileRow["application_status"] | null;
   payment_status: InvestorProfileRow["payment_status"];
+  private_payment_status: InvestorProfileRow["private_payment_status"];
   guardian_serial: number | null;
   nda_signed_ff: boolean | null;
   nda_signed_private: boolean | null;
@@ -30,10 +35,17 @@ function mapRow(row: Record<string, unknown>): AdminInvestorRow {
     offering_type: (row.offering_type as AdminInvestorRow["offering_type"]) ?? null,
     current_step: row.current_step != null ? Number(row.current_step) : null,
     current_route: (row.current_route as string | null) ?? null,
+    ff_current_step: row.ff_current_step != null ? Number(row.ff_current_step) : null,
+    ff_current_route: (row.ff_current_route as string | null) ?? null,
+    private_current_step:
+      row.private_current_step != null ? Number(row.private_current_step) : null,
+    private_current_route: (row.private_current_route as string | null) ?? null,
     amount_cents: row.amount_cents != null ? Number(row.amount_cents) : null,
     application_status:
       (row.application_status as AdminInvestorRow["application_status"]) ?? null,
     payment_status: (row.payment_status as AdminInvestorRow["payment_status"]) ?? null,
+    private_payment_status:
+      (row.private_payment_status as AdminInvestorRow["private_payment_status"]) ?? null,
     guardian_serial:
       row.guardian_serial != null ? Number(row.guardian_serial) : null,
     nda_signed_ff: row.nda_signed_ff != null ? Boolean(row.nda_signed_ff) : null,
@@ -64,9 +76,14 @@ export async function listInvestorsForAdmin(): Promise<AdminInvestorRow[]> {
       p.offering_type,
       p.current_step,
       p.current_route,
+      p.ff_current_step,
+      p.ff_current_route,
+      p.private_current_step,
+      p.private_current_route,
       p.amount_cents,
       p.application_status,
       p.payment_status,
+      p.private_payment_status,
       p.guardian_serial,
       p.nda_signed_ff,
       p.nda_signed_private,
@@ -96,9 +113,14 @@ export async function getInvestorForAdmin(
       p.offering_type,
       p.current_step,
       p.current_route,
+      p.ff_current_step,
+      p.ff_current_route,
+      p.private_current_step,
+      p.private_current_route,
       p.amount_cents,
       p.application_status,
       p.payment_status,
+      p.private_payment_status,
       p.guardian_serial,
       p.nda_signed_ff,
       p.nda_signed_private,

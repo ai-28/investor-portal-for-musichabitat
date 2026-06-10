@@ -1,34 +1,39 @@
-export const HOSTED_EXEC_SUMMARY_URL = "";
+export const HOSTED_EXEC_SUMMARY_URL = "/assets/docs/MusicHabitat%20Executive%20Summary%20FF.pdf";
 
+/** Local PDFs/DOCX under public/assets/docs */
+export const DOCS_BASE = "/assets/docs";
+
+function docUrl(filename: string) {
+  return `${DOCS_BASE}/${encodeURIComponent(filename)}`;
+}
 
 export const DOC_SOURCES = {
-  term_sheet: "", // BACKEND HOOK: Term Sheet PDF URL
-  execsum:    "", // BACKEND HOOK: Executive Summary PDF URL
-  deck:       "", // BACKEND HOOK: Pitch Deck PDF URL
-  model:      "", // BACKEND HOOK: Financial Model PDF URL
-  bizplan:    "", // BACKEND HOOK: Business Plan PDF URL
+  term_sheet: docUrl("MusicHabitat TermSheet Private506c.pdf"),
+  execsum:    docUrl("MusicHabitat Executive Summary FF.pdf"),
+  deck:       docUrl("MusicHabitat FF PitchDeck.pdf"),
+  model:      docUrl("MusicHabitat Financial Model.pdf"),
+  bizplan:    docUrl("MusicHabitat BusinessPlan.pdf"),
+  services:   docUrl("MusicHabitat StageBid Services.pdf"),
   // Closing instruments — drop the EXECUTED/signed PDFs here. Once set, the
   // viewer shows the real signed file and download fetches that same file
   // (overriding the generated full-text version).
-  safe:         "", // BACKEND HOOK: executed SAFE PDF URL
-  warrant:      "", // BACKEND HOOK: executed Warrant PDF URL
-  subscription: "", // BACKEND HOOK: executed Subscription PDF URL
+  safe:         docUrl("MusicHabitat SAFE Private506c.pdf"),
+  warrant:      docUrl("MusicHabitat Warrant Private506c.pdf"),
+  subscription: docUrl("MusicHabitat Subscription Private506c.pdf"),
   offering:     "", // BACKEND HOOK: Offering Package PDF URL
   stockholders: "", // BACKEND HOOK: executed Stockholders' Agreement PDF URL
-  operating:    "", // BACKEND HOOK: executed Operating Agreement PDF URL
-  proceeds:     "", // BACKEND HOOK: Use of Proceeds PDF URL
+  operating:    docUrl("MusicHabitat Operating Agreement.pdf"),
+  proceeds:     docUrl("MusicHabitat Use of Proceeds.pdf"),
 };
 
 // ---- Prototype visuals + live link ------------------------------------------
-// Up to 5 mobile-app screenshots. BACKEND HOOK: drop hosted image URLs in order;
-// empty slots render as numbered placeholder phone frames. e.g.
-//   "https://www.musichabitat.com/proto/01-home.png"
+// Up to 5 mobile-app screenshots (public/assets/prototype/1.png … 5.png).
 export const PROTOTYPE_IMAGES = [
-  "", // BACKEND HOOK: app visual 1
-  "", // BACKEND HOOK: app visual 2
-  "", // BACKEND HOOK: app visual 3
-  "", // BACKEND HOOK: app visual 4
-  "", // BACKEND HOOK: app visual 5
+  "/assets/prototype/1.png",
+  "/assets/prototype/2.png",
+  "/assets/prototype/3.png",
+  "/assets/prototype/4.png",
+  "/assets/prototype/5.png",
 ];
 // Live interactive prototype. Shown only at Music Habitat's discretion: leave ""
 // to hide the "Open Live Prototype" button; investors always see the
@@ -41,9 +46,8 @@ export const PDF_RENDER_IDS = new Set(["term_sheet", "termsheet_c", "termsheet_i
 // Normalize the portal's several term-sheet ids to one source key.
 
 export const DOCUSIGN = {
-  enabled: false, // BACKEND HOOK: set true once envelope creation is wired
-  // BACKEND HOOK: your server endpoint that returns { url } for the embedded signing view
-  createEnvelopeEndpoint: "", // e.g. "https://api.musichabitat.com/docusign/envelope"
+  enabled: true,
+  createEnvelopeEndpoint: "/api/docusign/envelope",
   documents: [
     { id: "safe", name: "SAFE Agreement" },
     { id: "warrant", name: "Warrant Agreement" },

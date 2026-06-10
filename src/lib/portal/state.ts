@@ -20,44 +20,108 @@ export function defaultRouteForOffering(offeringType: OfferingType | null): stri
   return "page2";
 }
 
-/** Entry/auth screens — never treat these as the user's furthest progress. */
-const NON_PROGRESS_ROUTES = new Set([
-  "page1",
-  "gate_ff",
-  "gate_private",
-  "nda_ff",
-  "nda_private",
+const PRIVATE_PROGRESS_ROUTES = new Set([
+  "pp_welcome_ceo",
+  "pp_overview",
+  "pp_docs",
+  "pp_qa",
+  "pp_apply",
+  "pp_reserve",
+  "pp_ack",
+  "pp_sign",
+  "pp_fund",
+  "pp_welcome",
+  "pp_call",
 ]);
 
-function isProgressRoute(route: string | null): route is string {
-  return Boolean(route && !NON_PROGRESS_ROUTES.has(route));
+export function routeToTrack(route: string): OfferingType | null {
+  if (PRIVATE_PROGRESS_ROUTES.has(route) || route === "nda_private" || route === "gate_private") {
+    return "private";
+  }
+  if (route === "nda_ff" || route === "gate_ff") return "friends_family";
+  if (routeToStep(route) != null) return "friends_family";
+  return null;
+}
+
+export function isFfProgressRoute(route: string | null): route is string {
+  return Boolean(route && routeToStep(route) != null);
+}
+
+export function isPrivateProgressRoute(route: string | null): route is string {
+  return Boolean(route && PRIVATE_PROGRESS_ROUTES.has(route));
+}
+
+export function trackProgressFromProfile(
+  profile: InvestorProfileRow,
+  track: OfferingType,
+): { route: string | null; step: number } {
+  if (track === "private") {
+    return {
+      route: profile.private_current_route,
+      step: profile.private_current_step ?? 2,
+    };
+  }
+  return {
+    route: profile.ff_current_route,
+    step: profile.ff_current_step ?? 2,
+  };
 }
 
 export function resumeRouteFromProfile(
   offeringType: OfferingType | null,
-  currentRoute: string | null,
+  trackRoute: string | null,
   ndaSignedFf: boolean,
   ndaSignedPrivate: boolean,
-  currentStep = 2,
+  trackStep = 2,
 ): string {
   if (offeringType === "private") {
     if (!ndaSignedPrivate) return "nda_private";
-    if (isProgressRoute(currentRoute)) return currentRoute;
+    if (isPrivateProgressRoute(trackRoute)) return trackRoute;
     return "pp_welcome_ceo";
   }
 
   if (offeringType === "friends_family") {
     if (!ndaSignedFf) return "nda_ff";
-    if (isProgressRoute(currentRoute)) return currentRoute;
-    if (currentStep >= 2 && currentStep <= 13) return `page${currentStep}`;
+    if (isFfProgressRoute(trackRoute)) return trackRoute;
+    if (trackStep >= 2 && trackStep <= 13) return `page${trackStep}`;
     return "page2";
   }
 
-  // Track not chosen yet — stay on the gate if that's where they are.
-  if (currentRoute === "gate_private") return "nda_private";
-  if (currentRoute === "gate_ff") return "nda_ff";
-  if (isProgressRoute(currentRoute)) return currentRoute;
+  if (trackRoute === "gate_private") return "nda_private";
+  if (trackRoute === "gate_ff") return "nda_ff";
+  if (isPrivateProgressRoute(trackRoute)) return trackRoute;
+  if (isFfProgressRoute(trackRoute)) return trackRoute;
   return "page2";
+}
+
+/** Build a portal patch that saves route/step only to the matching track columns. */
+export function trackRoutePatch(
+  route: string,
+  step: number | null,
+): PortalStatePatch {
+  const track = routeToTrack(route);
+  const patch: PortalStatePatch = {};
+
+  if (track === "friends_family") {
+    patch.ff_current_route = route;
+    if (step != null) patch.ff_current_step = step;
+  } else if (track === "private") {
+    patch.private_current_route = route;
+    if (step != null) patch.private_current_step = step;
+  }
+
+  return patch;
+}
+
+/** Investment amount for payments — each track uses its own storage. */
+export function amountCentsForTrack(
+  profile: InvestorProfileRow,
+  track: OfferingType,
+): number | null {
+  if (track === "private") {
+    return amountStringToValidCents(parsePrivateApp(profile.private_app).amount, "private");
+  }
+  return profile.amount_cents;
 }
 
 export function routeToStep(route: string): number | null {
@@ -78,6 +142,25 @@ export function amountStringToCents(amount: string): number | null {
   const dollars = Number(digits);
   if (!Number.isFinite(dollars) || dollars <= 0) return null;
   return dollars * 100;
+}
+
+const MIN_AMOUNT_CENTS: Record<OfferingType, number> = {
+  friends_family: 50000,
+  private: 250000,
+};
+
+/** Returns cents only when amount meets track minimum; otherwise null (draft/in-progress). */
+export function amountStringToValidCents(
+  amount: string,
+  offeringType: OfferingType | null | undefined,
+): number | null {
+  const cents = amountStringToCents(amount);
+  if (cents == null) return null;
+  const min =
+    offeringType === "private"
+      ? MIN_AMOUNT_CENTS.private
+      : MIN_AMOUNT_CENTS.friends_family;
+  return cents >= min ? cents : null;
 }
 
 function parsePrivateApp(raw: unknown): PrivateApp {
@@ -109,6 +192,10 @@ export function profileToPortalState(
       psigned: {},
       currentStep: 2,
       currentRoute: null,
+      ffCurrentStep: 2,
+      ffCurrentRoute: null,
+      privateCurrentStep: 2,
+      privateCurrentRoute: null,
       offeringType: null,
       ndaSignedFf: false,
       ndaSignedPrivate: false,
@@ -116,6 +203,15 @@ export function profileToPortalState(
   }
 
   const papp = parsePrivateApp(profile.private_app);
+  const ffProgress = trackProgressFromProfile(profile, "friends_family");
+  const privateProgress = trackProgressFromProfile(profile, "private");
+  const activeTrack = profile.offering_type;
+  const activeProgress =
+    activeTrack === "private"
+      ? privateProgress
+      : activeTrack === "friends_family"
+        ? ffProgress
+        : { route: null as string | null, step: 2 };
 
   return {
     profile,
@@ -129,15 +225,19 @@ export function profileToPortalState(
     papp: {
       ...papp,
       email: papp.email || profile.email || userEmail || "",
-      fullName: papp.fullName || profile.full_name || "",
+      fullName: papp.fullName ?? "",
     },
     read: (profile.read_docs ?? {}) as ReadMap,
     acks: (profile.acknowledgments ?? {}) as AckMap,
     signed: (profile.signed_docs ?? {}) as SignedMap,
     packs: (profile.private_acks ?? {}) as AckMap,
     psigned: (profile.private_signed ?? {}) as SignedMap,
-    currentStep: profile.current_step,
-    currentRoute: profile.current_route,
+    currentStep: activeProgress.step,
+    currentRoute: activeProgress.route,
+    ffCurrentStep: ffProgress.step,
+    ffCurrentRoute: ffProgress.route,
+    privateCurrentStep: privateProgress.step,
+    privateCurrentRoute: privateProgress.route,
     offeringType: profile.offering_type,
     ndaSignedFf: profile.nda_signed_ff,
     ndaSignedPrivate: profile.nda_signed_private,
@@ -157,6 +257,14 @@ export function patchToRowUpdate(
   }
   if (patch.current_step !== undefined) update.current_step = patch.current_step;
   if (patch.current_route !== undefined) update.current_route = patch.current_route;
+  if (patch.ff_current_step !== undefined) update.ff_current_step = patch.ff_current_step;
+  if (patch.ff_current_route !== undefined) update.ff_current_route = patch.ff_current_route;
+  if (patch.private_current_step !== undefined) {
+    update.private_current_step = patch.private_current_step;
+  }
+  if (patch.private_current_route !== undefined) {
+    update.private_current_route = patch.private_current_route;
+  }
   if (patch.full_name !== undefined) update.full_name = patch.full_name || null;
   if (patch.phone !== undefined) update.phone = patch.phone || null;
   if (patch.email !== undefined) update.email = patch.email;
@@ -186,7 +294,8 @@ export function patchToRowUpdate(
   if (patch.payment_status !== undefined) update.payment_status = patch.payment_status;
 
   if (patch.amount !== undefined) {
-    update.amount_cents = amountStringToCents(patch.amount);
+    const track = patch.offering_type ?? existing?.offering_type ?? null;
+    update.amount_cents = amountStringToValidCents(patch.amount, track);
   }
 
   if (patch.read !== undefined) {
@@ -228,20 +337,17 @@ export function privateAppToPatch(papp: PrivateApp): PortalStatePatch {
   return { papp };
 }
 
-/** Scalar application fields for the active track only. */
+/** Persist application fields for the active track without touching the other track. */
 export function applicationPatchForTrack(
   offeringType: OfferingType | null,
   app: InvestorApp,
   papp: PrivateApp,
 ): PortalStatePatch {
   if (offeringType === "private") {
-    return {
-      papp,
-      full_name: papp.fullName,
-      email: papp.email,
-      phone: papp.phone,
-      amount: papp.amount,
-    };
+    return { papp };
   }
-  return { ...appToPatch(app), papp };
+  if (offeringType === "friends_family") {
+    return appToPatch(app);
+  }
+  return {};
 }

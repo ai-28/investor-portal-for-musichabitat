@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "@/admin/AdminShell";
 import type { AdminInvestorRow } from "@/lib/admin/investors";
+import type { PaymentTransactionRow } from "@/lib/payments/types";
 import { guardianSerialToRoman } from "@/lib/portal/guardian-serial-format";
 import { Btn } from "@/portal/ui/Button";
 import { C } from "@/portal/tokens";
@@ -37,12 +38,38 @@ export function AdminInvestorDetailClient({
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
+  const [payments, setPayments] = useState<PaymentTransactionRow[]>([]);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const load = async () => {
-    const res = await fetch(`/api/admin/investors/${id}`);
-    if (!res.ok) throw new Error("Could not load investor.");
-    const data = (await res.json()) as { investor: AdminInvestorRow };
-    setInvestor(data.investor);
+    const [invRes, payRes] = await Promise.all([
+      fetch(`/api/admin/investors/${id}`),
+      fetch(`/api/admin/investors/${id}/payments`),
+    ]);
+    if (!invRes.ok) throw new Error("Could not load investor.");
+    const invData = (await invRes.json()) as { investor: AdminInvestorRow };
+    setInvestor(invData.investor);
+    if (payRes.ok) {
+      const payData = (await payRes.json()) as { transactions: PaymentTransactionRow[] };
+      setPayments(payData.transactions);
+    }
+  };
+
+  const confirmPayment = async (txId: string) => {
+    if (!window.confirm("Confirm that funds have been received?")) return;
+    setConfirmingId(txId);
+    setErr("");
+    try {
+      const res = await fetch(`/api/admin/payments/${txId}/confirm`, { method: "POST" });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(data.error || "Confirm failed.");
+      setActionMsg("Payment confirmed.");
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Confirm failed.");
+    } finally {
+      setConfirmingId(null);
+    }
   };
 
   useEffect(() => {
@@ -118,10 +145,35 @@ export function AdminInvestorDetailClient({
             }
           />
           <DetailRow label="Amount" value={amount} />
-          <DetailRow label="Step" value={investor.current_step != null ? String(investor.current_step) : "—"} />
-          <DetailRow label="Route" value={investor.current_route || "—"} />
+          <DetailRow
+            label="F&F progress"
+            value={
+              investor.ff_current_route
+                ? `${investor.ff_current_route}${investor.ff_current_step != null ? ` (step ${investor.ff_current_step})` : ""}`
+                : investor.nda_signed_ff
+                  ? "NDA signed — not started"
+                  : "—"
+            }
+          />
+          <DetailRow
+            label="Private progress"
+            value={
+              investor.private_current_route
+                ? investor.private_current_route
+                : investor.nda_signed_private
+                  ? "NDA signed — not started"
+                  : "—"
+            }
+          />
           <DetailRow label="Application status" value={investor.application_status || "—"} />
-          <DetailRow label="Payment status" value={investor.payment_status || "—"} />
+          <DetailRow
+            label="Payment status"
+            value={
+              investor.offering_type === "private"
+                ? investor.private_payment_status || "—"
+                : investor.payment_status || "—"
+            }
+          />
           <DetailRow
             label="Guardian serial"
             value={
@@ -136,6 +188,56 @@ export function AdminInvestorDetailClient({
             label="Signed up"
             value={new Date(investor.user_created_at).toLocaleString()}
           />
+        </div>
+      ) : null}
+
+      {payments.length > 0 ? (
+        <div style={{ marginTop: 24 }}>
+          <h3 style={{ fontSize: 15, marginBottom: 10 }}>Payment history</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {payments.map((tx) => (
+              <div
+                key={tx.id}
+                style={{
+                  background: C.card,
+                  border: `1px solid ${C.line}`,
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                  <span>
+                    {tx.method.toUpperCase()} · $
+                    {Math.round(tx.amount_cents / 100).toLocaleString()}
+                  </span>
+                  <span style={{ color: tx.status === "succeeded" ? C.green : C.textDim }}>
+                    {tx.status}
+                  </span>
+                </div>
+                {tx.wire_reference ? (
+                  <div style={{ fontSize: 11, color: C.textFaint, marginTop: 4 }}>
+                    Ref: {tx.wire_reference}
+                  </div>
+                ) : null}
+                {tx.processor_id ? (
+                  <div style={{ fontSize: 11, color: C.textFaint, marginTop: 2 }}>
+                    {tx.processor_id}
+                  </div>
+                ) : null}
+                {(tx.method === "wire" || tx.method === "check") && tx.status === "pending" ? (
+                  <Btn
+                    variant="amber"
+                    disabled={confirmingId === tx.id}
+                    onClick={() => confirmPayment(tx.id)}
+                    style={{ marginTop: 10, padding: "6px 12px", fontSize: 12 }}
+                  >
+                    {confirmingId === tx.id ? "Confirming…" : "Confirm funds received"}
+                  </Btn>
+                ) : null}
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 

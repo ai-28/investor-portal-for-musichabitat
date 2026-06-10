@@ -5,6 +5,14 @@ import type {
 } from "@/lib/portal/db-types";
 import { patchToRowUpdate } from "@/lib/portal/state";
 import { getSql } from "@/lib/db/client";
+import { getUserById } from "@/lib/auth/users";
+
+export class SessionUserNotFoundError extends Error {
+  constructor() {
+    super("SESSION_USER_NOT_FOUND");
+    this.name = "SessionUserNotFoundError";
+  }
+}
 
 function mapProfileRow(row: Record<string, unknown>): InvestorProfileRow {
   return row as unknown as InvestorProfileRow;
@@ -41,6 +49,11 @@ export async function ensureProfile(
     return existing;
   }
 
+  const portalUser = await getUserById(userId);
+  if (!portalUser) {
+    throw new SessionUserNotFoundError();
+  }
+
   const sql = getSql();
   const rows = await sql`
     INSERT INTO investor_profiles (id, email, offering_type, current_step)
@@ -75,6 +88,10 @@ export async function updateProfile(
       referrer_rejected = ${merged.referrer_rejected},
       current_step = ${merged.current_step},
       current_route = ${merged.current_route},
+      ff_current_step = ${merged.ff_current_step},
+      ff_current_route = ${merged.ff_current_route},
+      private_current_step = ${merged.private_current_step},
+      private_current_route = ${merged.private_current_route},
       amount_cents = ${merged.amount_cents},
       accredited_confirmed = ${merged.accredited_confirmed},
       application_status = ${merged.application_status},
