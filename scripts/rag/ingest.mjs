@@ -100,6 +100,7 @@ async function syncToChroma(records) {
   if (!chromaUrl) return;
 
   try {
+    // Optional peer: npm install chromadb@^3 (not required for JSON-based RAG)
     const { ChromaClient } = await import("chromadb");
     const chroma = new ChromaClient({ path: chromaUrl });
     const name = "musichabitat_docs";
