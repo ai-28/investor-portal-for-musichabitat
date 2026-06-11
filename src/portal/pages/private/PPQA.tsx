@@ -23,6 +23,9 @@ import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
 import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
 import { achLabel, achErr } from "@/portal/data/ach-labels";
+import { askAssistant } from "@/portal/lib/assistant";
+import { AssistantSources } from "@/portal/ui/AssistantSources";
+import { AssistantMessageBody } from "@/portal/ui/AssistantMessageBody";
 
 export function PPQA({ go, onBack }) {
   const cats = Object.keys(QA_PRIVATE);
@@ -45,21 +48,11 @@ export function PPQA({ go, onBack }) {
     setChat(next);
     setBusy(true);
     try {
-      const sys = "You are the Music Habitat Investor Assistant for the Private Offering (Rule 506(c) of Regulation D). Answer concisely, factually, and only about Music Habitat, StageBid, and this offering. Key terms: this is a PRICED round — accredited investors purchase Class B Preferred stock directly via a Stock Purchase & Transfer Agreement at a stated $1.25 per share, $2,500 minimum, under Rule 506(c). This is NOT a SAFE and there is NO warrant and NO Guardian Badge — those belong to the separate Friends & Family Circle 35 (506(b)) round. Under 506(c), general solicitation is permitted but every investor's accredited status must be verified by the company (third-party letter, document review, or a verification service) — self-certification is not sufficient. Share structure: $10M pre-money context, 10,000,000 declared shares, Class A founder super-voting 15:1, Class B Preferred 1:1 voting and pari passu with Class A on economics, Class C common non-voting. Governing law Montana. Launch market New Orleans, 2026. Never give legal, tax, or investment advice — direct investors to their own advisors and to the official documents in the Document Center. If unsure, say so and point to brandon@musichabitat.com.";
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: sys,
-          messages: next.map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
-      const data = await res.json();
-      const text = (data.content || []).map((b) => (b.type === "text" ? b.text : "")).filter(Boolean).join("\n")
-        || "I wasn't able to generate a response just now. Please try again, or email brandon@musichabitat.com.";
-      setChat((c) => [...c, { role: "assistant", content: text }]);
+      const { text, sources } = await askAssistant(
+        "private",
+        next.map((m) => ({ role: m.role, content: m.content })),
+      );
+      setChat((c) => [...c, { role: "assistant", content: text, sources }]);
     } catch (e) {
       setChat((c) => [...c, { role: "assistant", content: "Something went wrong reaching the assistant. Please try again in a moment, or email brandon@musichabitat.com." }]);
     } finally {
@@ -153,7 +146,12 @@ export function PPQA({ go, onBack }) {
                 lineHeight: 1.5, whiteSpace: "pre-wrap",
                 background: m.role === "user" ? C.teal : C.cardHi,
                 color: m.role === "user" ? "#04252A" : C.text,
-                border: m.role === "user" ? "none" : `1px solid ${C.line}` }}>{m.content}</div>
+                border: m.role === "user" ? "none" : `1px solid ${C.line}` }}>
+                {m.role === "user" ? m.content : <AssistantMessageBody text={m.content} />}
+                {m.role === "assistant" && m.sources?.length > 0 && (
+                  <AssistantSources sources={m.sources} accent={C.teal} />
+                )}
+              </div>
             </div>
           ))}
           {busy && (

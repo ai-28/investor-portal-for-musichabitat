@@ -1,68 +1,79 @@
 import { NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/session";
+import { embedQuery, CHAT_MODEL, openaiClient } from "@/lib/rag/embed";
+import { retrieveRelevantChunks, chunksToSources } from "@/lib/rag/retrieve";
+import { buildSystemPrompt, trimHistory } from "@/lib/rag/prompt";
+import type { AssistantTrack, ChatMessage } from "@/lib/rag/types";
 
-const SYSTEM_PROMPT =
-  "You are the Music Habitat Investor Assistant for the Circle 35 Friends & Family round (Rule 506(b)). Answer concisely, factually, and only about Music Habitat, StageBid, and this offering. Key terms: $10M pre-money cap, 10,000,000 shares at $1.00/share, SAFE converting to Class B Preferred on a Qualified Financing >= $500,000, 5% discount, 3x warrant coverage at 95% of FMV exercisable within 9 months, $500 minimum / $25,000 maximum per investor, Class B is pari passu with Class A on economics with 1:1 voting (Class A 15:1), governing law Montana with AAA arbitration in Montana or Louisiana. Launch market is New Orleans, 2026. Never give legal, tax, or investment advice — direct investors to their own advisors and to the official documents in the Document Center. If unsure, say so and point to brandon@musichabitat.com.";
+export const maxDuration = 30;
+
+const FALLBACK =
+  "I wasn't able to find enough information in the offering documents to answer that. Please review the Document Center or email brandon@musichabitat.com.";
+
+function isTrack(value: unknown): value is AssistantTrack {
+  return value === "ff" || value === "private";
+}
 
 export async function POST(request: Request) {
   try {
     await requireSessionUser();
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { error: "Assistant is not configured. Set ANTHROPIC_API_KEY." },
+        { error: "Assistant is not configured. Set OPENAI_API_KEY." },
         { status: 503 },
       );
     }
 
     const body = (await request.json()) as {
-      messages?: { role: "user" | "assistant"; content: string }[];
+      track?: AssistantTrack;
+      messages?: ChatMessage[];
     };
+
+    const track = body.track ?? "ff";
+    if (!isTrack(track)) {
+      return NextResponse.json({ error: "Invalid track" }, { status: 400 });
+    }
 
     const messages = body.messages ?? [];
     if (!messages.length || messages[messages.length - 1]?.role !== "user") {
       return NextResponse.json({ error: "Invalid messages" }, { status: 400 });
     }
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 1000,
-        system: SYSTEM_PROMPT,
-        messages,
-      }),
-    });
+    const lastUser = messages[messages.length - 1].content;
+    const queryEmbedding = await embedQuery(lastUser);
+    const chunks = await retrieveRelevantChunks(queryEmbedding);
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      console.error("Anthropic API error", data);
-      return NextResponse.json(
-        { error: "Assistant request failed" },
-        { status: 502 },
-      );
+    if (!chunks.length) {
+      return NextResponse.json({ text: FALLBACK, sources: [] });
     }
 
-    const text =
-      (data.content || [])
-        .map((b: { type?: string; text?: string }) =>
-          b.type === "text" ? b.text : "",
-        )
-        .filter(Boolean)
-        .join("\n") ||
-      "I wasn't able to generate a response just now. Please try again, or email brandon@musichabitat.com.";
+    const system = buildSystemPrompt(track, chunks);
+    const history = trimHistory(messages);
 
-    return NextResponse.json({ text });
+    const client = openaiClient();
+    const completion = await client.chat.completions.create({
+      model: CHAT_MODEL,
+      max_tokens: 1000,
+      messages: [{ role: "system", content: system }, ...history],
+    });
+
+    const text =
+      completion.choices[0]?.message?.content?.trim() ||
+      FALLBACK;
+
+    const sources = chunksToSources(chunks);
+
+    return NextResponse.json({ text, sources });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (err instanceof Error && err.message.includes("RAG index not found")) {
+      return NextResponse.json(
+        { error: "Assistant knowledge base is not built. Run npm run rag:ingest." },
+        { status: 503 },
+      );
     }
     console.error("POST /api/assistant", err);
     return NextResponse.json({ error: "Assistant unavailable" }, { status: 500 });

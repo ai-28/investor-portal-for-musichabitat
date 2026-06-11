@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# RAG vector index (generated at build / npm run rag:ingest)
+/data/rag-index.json
+/data/rag-manifest.json
+/data/chroma/

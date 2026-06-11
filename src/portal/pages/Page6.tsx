@@ -21,6 +21,9 @@ import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
 import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
 import { achLabel, achErr } from "@/portal/data/ach-labels";
+import { askAssistant } from "@/portal/lib/assistant";
+import { AssistantSources } from "@/portal/ui/AssistantSources";
+import { AssistantMessageBody } from "@/portal/ui/AssistantMessageBody";
 
 export function Page6({ go, onBack }) {
   const cats = Object.keys(QA);
@@ -43,19 +46,11 @@ export function Page6({ go, onBack }) {
     setChat(next);
     setBusy(true);
     try {
-      const res = await fetch("/api/assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: next.map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
-      const data = await res.json();
-      const text =
-        data.text ||
-        data.error ||
-        "I wasn't able to generate a response just now. Please try again, or email brandon@musichabitat.com.";
-      setChat((c) => [...c, { role: "assistant", content: text }]);
+      const { text, sources } = await askAssistant(
+        "ff",
+        next.map((m) => ({ role: m.role, content: m.content })),
+      );
+      setChat((c) => [...c, { role: "assistant", content: text, sources }]);
     } catch (e) {
       setChat((c) => [...c, { role: "assistant", content: "Something went wrong reaching the assistant. Please try again in a moment, or email brandon@musichabitat.com." }]);
     } finally {
@@ -144,7 +139,12 @@ export function Page6({ go, onBack }) {
                 lineHeight: 1.5, whiteSpace: "pre-wrap",
                 background: m.role === "user" ? C.amber : C.cardHi,
                 color: m.role === "user" ? "#1A1206" : C.text,
-                border: m.role === "user" ? "none" : `1px solid ${C.line}` }}>{m.content}</div>
+                border: m.role === "user" ? "none" : `1px solid ${C.line}` }}>
+                {m.role === "user" ? m.content : <AssistantMessageBody text={m.content} />}
+                {m.role === "assistant" && m.sources?.length > 0 && (
+                  <AssistantSources sources={m.sources} accent={C.teal} />
+                )}
+              </div>
             </div>
           ))}
           {busy && (
