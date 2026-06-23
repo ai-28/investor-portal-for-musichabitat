@@ -37,7 +37,7 @@ export function Page7({ go, onBack, app, setApp }) {
     } catch (err) {
       console.error("Failed to save application", err);
     }
-    go("page8");
+    await go("page8");
   };
 
   return (

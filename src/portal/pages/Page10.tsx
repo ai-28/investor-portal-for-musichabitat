@@ -182,8 +182,14 @@ export function Page10({ go, onBack, signed, setSigned, app }: {
         variant="amber"
         onClick={() => {
           if (!allSigned) return;
-          patchPortalState({ application_status: "signed" }).catch(console.error);
-          go("page11");
+          void (async () => {
+            try {
+              await patchPortalState({ application_status: "signed" });
+            } catch (err) {
+              console.error("Failed to mark application signed", err);
+            }
+            await go("page11");
+          })();
         }}
         style={{ opacity: allSigned ? 1 : 0.5 }}
       >

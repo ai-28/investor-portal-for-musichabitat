@@ -62,8 +62,10 @@ export function Page9({ go, onBack, acks, setAcks }) {
         variant="amber"
         onClick={() => {
           if (!allChecked) return;
-          markApplicationSubmitted();
-          go("page10");
+          void (async () => {
+            await markApplicationSubmitted();
+            await go("page10");
+          })();
         }}
         style={{ opacity: allChecked ? 1 : 0.5 }}
       >

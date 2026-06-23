@@ -47,7 +47,7 @@ export function PPApply({ go, onBack, papp, setPapp }) {
     } catch (err) {
       console.error("Failed to save private application", err);
     }
-    go("pp_reserve");
+    await go("pp_reserve");
   };
 
   const BASES = [

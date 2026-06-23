@@ -98,6 +98,20 @@ export function isTrackGatedRoute(route: string): boolean {
   );
 }
 
+/** Use pending navigation target when it is ahead of saved progress (optimistic Continue). */
+export function effectiveProgressRoute(
+  track: OfferingType,
+  savedRoute: string | null,
+  pendingRoute: string | null,
+): string | null {
+  if (!pendingRoute || routeToTrack(pendingRoute) !== track) return savedRoute;
+  const pendingIdx = routeOrderIndex(track, pendingRoute);
+  const savedIdx = savedRoute ? routeOrderIndex(track, savedRoute) : null;
+  if (pendingIdx == null) return savedRoute;
+  if (savedIdx == null || pendingIdx > savedIdx) return pendingRoute;
+  return savedRoute;
+}
+
 /** True when target route is later than the furthest route the user has earned. */
 export function isRouteAheadOfAllowed(
   track: OfferingType,

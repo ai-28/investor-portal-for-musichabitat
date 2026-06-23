@@ -4,7 +4,10 @@ import type { OfferingType, PaymentStatus } from "@/lib/portal/db-types";
 /** Internal route key (legacy) or doc_view:id */
 export type RouteKey = string;
 
-export type GoFn = (route: RouteKey) => void;
+export type GoFn = (
+  route: RouteKey,
+  options?: { replace?: boolean },
+) => Promise<void>;
 
 export type AuthMode = "signin" | "signup";
 
