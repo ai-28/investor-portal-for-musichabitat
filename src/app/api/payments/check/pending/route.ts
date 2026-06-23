@@ -4,6 +4,7 @@ import { getProfile } from "@/lib/portal/profile";
 import { amountCentsForTrack } from "@/lib/portal/state";
 import {
   createTransaction,
+  findPendingCheckTransaction,
   syncProfilePaymentStatus,
 } from "@/lib/payments/transactions";
 import type { PaymentTrack } from "@/lib/payments/types";
@@ -24,6 +25,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Investment amount is not set." }, { status: 400 });
     }
 
+    const existing = await findPendingCheckTransaction(user.id, track, amountCents);
+    if (existing) {
+      return NextResponse.json({
+        transactionId: existing.id,
+        alreadyRecorded: true,
+      });
+    }
+
     const tx = await createTransaction({
       investorId: user.id,
       track,
@@ -35,7 +44,7 @@ export async function POST(request: Request) {
 
     await syncProfilePaymentStatus(user.id, track, "pending");
 
-    return NextResponse.json({ transactionId: tx.id });
+    return NextResponse.json({ transactionId: tx.id, alreadyRecorded: false });
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -22,6 +22,12 @@ export async function POST(request: Request) {
     }
 
     const result = await createAchPaymentIntent(user.id, track);
+    if (result.alreadyCompleted && !result.transactionId) {
+      return NextResponse.json(
+        { error: "Payment already completed for this investment." },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof Error && err.message === "Unauthorized") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -11,6 +11,8 @@ import {
 import { C, FONT_BODY, FONT_DISPLAY } from "@/portal/tokens";
 import { Card } from "@/portal/ui/Card";
 import { FUNDING } from "@/portal/data/doc-config";
+import { usePortal } from "@/portal/PortalProvider";
+import type { PaymentStatus } from "@/lib/portal/db-types";
 import type { PaymentTrack } from "@/lib/payments/types";
 
 type Accent = "amber" | "teal";
@@ -25,85 +27,78 @@ interface FundingPanelProps {
 
 interface PaymentConfig {
   achEnabled: boolean;
-  wireEnabled: boolean;
   publishableKey: string | null;
-}
-
-interface WireData {
-  beneficiary: string;
-  bankName: string;
-  routingNumber: string;
-  accountNumber: string;
-  address: string;
-  amountCents: number;
-  wireReference: string;
-  transactionId: string;
 }
 
 const accentColor = (accent: Accent) => (accent === "teal" ? C.teal : C.amber);
 
-function CopyButton({ text, accent }: { text: string; accent: Accent }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* ignore */
-    }
-  };
-  return (
-    <button
-      type="button"
-      onClick={copy}
-      style={{
-        marginLeft: 8,
-        padding: "2px 8px",
-        fontSize: 10,
-        borderRadius: 6,
-        border: `1px solid ${C.line}`,
-        background: "transparent",
-        color: copied ? C.green : accentColor(accent),
-        cursor: "pointer",
-        fontFamily: FONT_BODY,
-      }}
-    >
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
+const stripePromises = new Map<string, ReturnType<typeof loadStripe>>();
+
+function getStripePromise(publishableKey: string) {
+  let promise = stripePromises.get(publishableKey);
+  if (!promise) {
+    promise = loadStripe(publishableKey);
+    stripePromises.set(publishableKey, promise);
+  }
+  return promise;
 }
 
-function WireRow({
-  label,
-  value,
-  accent,
-  copyValue,
-}: {
-  label: string;
-  value: string;
-  accent: Accent;
-  copyValue?: string;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 12,
-        padding: "8px 0",
-        borderBottom: `1px solid ${C.line}`,
-        fontSize: 13,
-      }}
-    >
-      <span style={{ color: C.textFaint, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: C.text, textAlign: "right", wordBreak: "break-all" }}>
-        {value}
-        {copyValue ? <CopyButton text={copyValue} accent={accent} /> : null}
-      </span>
-    </div>
-  );
+type AchIntentResponse = {
+  clientSecret?: string;
+  transactionId?: string;
+  alreadyCompleted?: boolean;
+  error?: string;
+};
+
+type FundingStatusResponse = {
+  paymentStatus: PaymentStatus | null;
+  achComplete: boolean;
+  checkMailed: boolean;
+};
+
+const achIntentInflight = new Map<PaymentTrack, Promise<AchIntentResponse>>();
+const achIntentCache = new Map<PaymentTrack, AchIntentResponse>();
+
+function isTrackFundingComplete(
+  track: PaymentTrack,
+  paymentStatus: PaymentStatus | null,
+  privatePaymentStatus: PaymentStatus | null,
+): boolean {
+  const status = track === "private" ? privatePaymentStatus : paymentStatus;
+  return status === "cleared" || status === "authorized";
+}
+
+function markAchCompleted(track: PaymentTrack, transactionId = "") {
+  achIntentCache.set(track, { transactionId, alreadyCompleted: true });
+}
+
+async function fetchAchIntent(track: PaymentTrack): Promise<AchIntentResponse> {
+  const cached = achIntentCache.get(track);
+  if (cached?.alreadyCompleted) return cached;
+
+  const inflight = achIntentInflight.get(track);
+  if (inflight) return inflight;
+
+  const promise = (async () => {
+    const res = await fetch("/api/payments/ach/intent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track }),
+    });
+    const data = (await res.json()) as AchIntentResponse;
+    if (!res.ok) throw new Error(data.error || "Could not start ACH payment.");
+    if (data.alreadyCompleted) {
+      achIntentCache.set(track, data);
+    }
+    return data;
+  })();
+
+  achIntentInflight.set(track, promise);
+  try {
+    return await promise;
+  } finally {
+    achIntentInflight.delete(track);
+  }
 }
 
 function AchCheckoutForm({
@@ -119,9 +114,11 @@ function AchCheckoutForm({
   const elements = useElements();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [elementReady, setElementReady] = useState(false);
+  const [elementLoadFailed, setElementLoadFailed] = useState(false);
 
   const submit = async () => {
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !elementReady) return;
     setBusy(true);
     setErr("");
     try {
@@ -149,11 +146,38 @@ function AchCheckoutForm({
 
   return (
     <div>
-      <PaymentElement
-        options={{
-          layout: "tabs",
+      <div
+        style={{
+          minHeight: elementLoadFailed ? 0 : 120,
+          marginBottom: 4,
         }}
-      />
+      >
+        {elementLoadFailed ? null : (
+          <PaymentElement
+            onReady={() => setElementReady(true)}
+            onLoadError={(event) => {
+              setElementLoadFailed(true);
+              setElementReady(false);
+              setErr(
+                event.error?.message ??
+                  "Could not load the bank form. Refresh the page or reset your test payment and try again.",
+              );
+            }}
+            options={{
+              layout: "accordion",
+              wallets: {
+                applePay: "never",
+                googlePay: "never",
+              },
+            }}
+          />
+        )}
+      </div>
+      {!elementReady && !elementLoadFailed ? (
+        <p style={{ fontSize: 12, color: C.textDim, marginBottom: 8 }}>
+          Loading secure bank form…
+        </p>
+      ) : null}
       <p
         style={{
           fontSize: 11,
@@ -172,7 +196,7 @@ function AchCheckoutForm({
       <button
         type="button"
         onClick={submit}
-        disabled={!stripe || busy}
+        disabled={!stripe || busy || !elementReady || elementLoadFailed}
         style={{
           width: "100%",
           marginTop: 12,
@@ -194,56 +218,23 @@ function AchCheckoutForm({
   );
 }
 
-function AchSection({
-  track,
+function AchStripeForm({
+  clientSecret,
+  publishableKey,
   amount,
   accent,
-  publishableKey,
   onSuccess,
 }: {
-  track: PaymentTrack;
+  clientSecret: string;
+  publishableKey: string;
   amount: number;
   accent: Accent;
-  publishableKey: string;
   onSuccess: () => void;
 }) {
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/payments/ach/intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ track }),
-        });
-        const data = (await res.json()) as { clientSecret?: string; error?: string };
-        if (!res.ok) throw new Error(data.error || "Could not start ACH payment.");
-        if (!cancelled) setClientSecret(data.clientSecret ?? null);
-      } catch (e) {
-        if (!cancelled) {
-          setErr(e instanceof Error ? e.message : "Could not start ACH payment.");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [track]);
-
-  if (loading) {
-    return <p style={{ fontSize: 13, color: C.textDim }}>Preparing secure checkout…</p>;
-  }
-  if (err || !clientSecret) {
-    return <p style={{ fontSize: 13, color: C.red }}>{err || "ACH unavailable."}</p>;
-  }
-
-  const stripePromise = loadStripe(publishableKey);
+  const stripePromise = useMemo(
+    () => getStripePromise(publishableKey),
+    [publishableKey],
+  );
 
   return (
     <Elements
@@ -272,46 +263,102 @@ export function FundingPanel({
   accent,
   onReadyToContinue,
 }: FundingPanelProps) {
-  const [method, setMethod] = useState<"wire" | "ach" | "check">("wire");
+  const { paymentStatus, privatePaymentStatus, refreshState, recordPaymentStatus } =
+    usePortal();
+  const [method, setMethod] = useState<"ach" | "check">("ach");
   const [config, setConfig] = useState<PaymentConfig | null>(null);
-  const [wire, setWire] = useState<WireData | null>(null);
-  const [wireLoading, setWireLoading] = useState(false);
-  const [wireErr, setWireErr] = useState("");
   const [achDone, setAchDone] = useState(false);
+  const [achClientSecret, setAchClientSecret] = useState<string | null>(null);
+  const [achStarting, setAchStarting] = useState(false);
+  const [achStartErr, setAchStartErr] = useState("");
   const [checkPending, setCheckPending] = useState(false);
+
+  const handleAchSuccess = useCallback(() => {
+    setAchDone(true);
+    markAchCompleted(track);
+    onReadyToContinue?.();
+    recordPaymentStatus("authorized", track).catch(() => {});
+  }, [track, onReadyToContinue, recordPaymentStatus]);
+
+  const trackPaymentStatus =
+    track === "private" ? privatePaymentStatus : paymentStatus;
+  const fundingSettled = trackPaymentStatus === "cleared";
+
+  useEffect(() => {
+    refreshState();
+  }, [track, refreshState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/payments/funding-status?track=${track}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as FundingStatusResponse;
+        if (cancelled) return;
+        if (data.achComplete) {
+          setAchDone(true);
+          markAchCompleted(track);
+          onReadyToContinue?.();
+        }
+        if (data.checkMailed) {
+          setCheckPending(true);
+          onReadyToContinue?.();
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [track, onReadyToContinue]);
+
+  useEffect(() => {
+    if (isTrackFundingComplete(track, paymentStatus, privatePaymentStatus)) {
+      setAchDone(true);
+      markAchCompleted(track);
+      onReadyToContinue?.();
+    }
+  }, [track, paymentStatus, privatePaymentStatus, onReadyToContinue]);
+
+  const startAchLinking = useCallback(async () => {
+    setAchStarting(true);
+    setAchStartErr("");
+    try {
+      const data = await fetchAchIntent(track);
+      if (data.alreadyCompleted) {
+        handleAchSuccess();
+        return;
+      }
+      if (!data.clientSecret) {
+        throw new Error("ACH unavailable.");
+      }
+      setAchClientSecret(data.clientSecret);
+    } catch (e) {
+      setAchStartErr(
+        e instanceof Error ? e.message : "Could not start ACH payment.",
+      );
+    } finally {
+      setAchStarting(false);
+    }
+  }, [track, handleAchSuccess]);
 
   const color = accentColor(accent);
 
   useEffect(() => {
     fetch("/api/payments/config")
       .then((r) => r.json())
-      .then((data: PaymentConfig) => setConfig(data))
-      .catch(() =>
-        setConfig({ achEnabled: false, wireEnabled: false, publishableKey: null }),
-      );
+      .then((data: PaymentConfig & { wireEnabled?: boolean }) => {
+        setConfig({ achEnabled: data.achEnabled, publishableKey: data.publishableKey });
+        if (data.achEnabled) setMethod("ach");
+      })
+      .catch(() => setConfig({ achEnabled: false, publishableKey: null }));
   }, []);
 
-  const loadWire = useCallback(async () => {
-    setWireLoading(true);
-    setWireErr("");
-    try {
-      const res = await fetch(`/api/payments/wire/instructions?track=${track}`);
-      const data = (await res.json()) as WireData & { error?: string };
-      if (!res.ok) throw new Error(data.error || "Could not load wire instructions.");
-      setWire(data);
-      onReadyToContinue?.();
-    } catch (e) {
-      setWireErr(e instanceof Error ? e.message : "Could not load wire instructions.");
-    } finally {
-      setWireLoading(false);
-    }
-  }, [track, onReadyToContinue]);
-
-  useEffect(() => {
-    if (method === "wire" && config?.wireEnabled) {
-      loadWire();
-    }
-  }, [method, config?.wireEnabled, loadWire]);
+  const selectMethod = (id: "ach" | "check") => {
+    setMethod(id);
+  };
 
   const markCheckPending = async () => {
     try {
@@ -330,13 +377,6 @@ export function FundingPanel({
   };
 
   const methods = [
-    {
-      id: "wire" as const,
-      icon: "🏦",
-      label: "Wire Transfer",
-      sub: config?.wireEnabled ? "Same-day · include reference" : "Unavailable",
-      disabled: !config?.wireEnabled,
-    },
     {
       id: "ach" as const,
       icon: "💳",
@@ -362,7 +402,7 @@ export function FundingPanel({
             <button
               key={m.id}
               type="button"
-              onClick={() => !m.disabled && setMethod(m.id)}
+              onClick={() => !m.disabled && selectMethod(m.id)}
               style={{
                 flex: 1,
                 padding: "14px 6px",
@@ -383,77 +423,6 @@ export function FundingPanel({
       </div>
 
       <Card>
-        {method === "wire" && (
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color, marginBottom: 10 }}>
-              Wire Instructions
-            </div>
-            {wireLoading ? (
-              <p style={{ fontSize: 13, color: C.textDim }}>Loading wire details…</p>
-            ) : wireErr ? (
-              <p style={{ fontSize: 13, color: C.red }}>{wireErr}</p>
-            ) : wire ? (
-              <>
-                <WireRow
-                  label="Reference (required)"
-                  value={wire.wireReference}
-                  copyValue={wire.wireReference}
-                  accent={accent}
-                />
-                <WireRow
-                  label="Beneficiary"
-                  value={wire.beneficiary}
-                  copyValue={wire.beneficiary}
-                  accent={accent}
-                />
-                <WireRow
-                  label="Bank"
-                  value={wire.bankName}
-                  copyValue={wire.bankName}
-                  accent={accent}
-                />
-                <WireRow
-                  label="Routing"
-                  value={wire.routingNumber}
-                  copyValue={wire.routingNumber}
-                  accent={accent}
-                />
-                <WireRow
-                  label="Account"
-                  value={wire.accountNumber}
-                  copyValue={wire.accountNumber}
-                  accent={accent}
-                />
-                {wire.address ? (
-                  <WireRow
-                    label="Address"
-                    value={wire.address}
-                    copyValue={wire.address}
-                    accent={accent}
-                  />
-                ) : null}
-                <WireRow
-                  label="Amount"
-                  value={`$${(wire.amountCents / 100).toLocaleString()}`}
-                  accent={accent}
-                />
-                <p
-                  style={{
-                    fontSize: 11,
-                    color: C.textFaint,
-                    lineHeight: 1.5,
-                    marginTop: 12,
-                  }}
-                >
-                  Include the reference code in your wire memo so we can match your
-                  payment. Never wire based on emailed instructions alone — verify
-                  details by phone if needed.
-                </p>
-              </>
-            ) : null}
-          </div>
-        )}
-
         {method === "ach" && (
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color, marginBottom: 4 }}>
@@ -463,7 +432,9 @@ export function FundingPanel({
               <div style={{ textAlign: "center", padding: "16px 0" }}>
                 <div style={{ fontSize: 30, marginBottom: 8 }}>✓</div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.green }}>
-                  ACH authorization submitted
+                  {fundingSettled
+                    ? "Payment received"
+                    : "ACH authorization submitted"}
                 </div>
                 <p
                   style={{
@@ -473,8 +444,9 @@ export function FundingPanel({
                     margin: "8px 0 0",
                   }}
                 >
-                  Your debit of ${amount.toLocaleString()} is processing. You'll be
-                  notified once funds clear (typically 1–4 business days).
+                  {fundingSettled
+                    ? `Your $${amount.toLocaleString()} debit has cleared. We'll confirm your subscription once the Company accepts it.`
+                    : `Your debit of $${amount.toLocaleString()} is processing. You'll be notified once funds clear (typically 1–4 business days).`}
                 </p>
               </div>
             ) : config?.achEnabled && config.publishableKey ? (
@@ -484,26 +456,67 @@ export function FundingPanel({
                     fontSize: 12,
                     color: C.textFaint,
                     lineHeight: 1.5,
-                    margin: "0 0 14px",
+                    margin: "0 0 8px",
                   }}
                 >
                   Link your bank account securely. Your account details are tokenized by
                   Stripe — Music Habitat never stores raw account numbers.
                 </p>
-                <AchSection
-                  track={track}
-                  amount={amount}
-                  accent={accent}
-                  publishableKey={config.publishableKey}
-                  onSuccess={() => {
-                    setAchDone(true);
-                    onReadyToContinue?.();
+                <p
+                  style={{
+                    fontSize: 11,
+                    color: C.textFaint,
+                    lineHeight: 1.5,
+                    margin: "0 0 14px",
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    background: C.cardHi,
+                    border: `1px solid ${C.line}`,
                   }}
-                />
+                >
+                  <strong style={{ color: C.textDim }}>Testing:</strong> choose{" "}
+                  <strong style={{ color: color }}>Test (Non-OAuth)</strong> in the bank
+                  search — it stays in this page (no extra login tabs). If you use Bank
+                  (OAuth), select <strong>only one</strong> account in the popup before
+                  Agree and Continue.
+                </p>
+                {achStartErr ? (
+                  <p style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{achStartErr}</p>
+                ) : null}
+                {!achClientSecret ? (
+                  <button
+                    type="button"
+                    onClick={startAchLinking}
+                    disabled={achStarting}
+                    style={{
+                      width: "100%",
+                      padding: "13px 0",
+                      borderRadius: 10,
+                      background: color,
+                      color: accent === "amber" ? "#1A1206" : "#fff",
+                      border: "none",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: achStarting ? "default" : "pointer",
+                      opacity: achStarting ? 0.6 : 1,
+                      fontFamily: FONT_DISPLAY,
+                    }}
+                  >
+                    {achStarting ? "Preparing…" : "Link my bank account"}
+                  </button>
+                ) : (
+                  <AchStripeForm
+                    clientSecret={achClientSecret}
+                    publishableKey={config.publishableKey}
+                    amount={amount}
+                    accent={accent}
+                    onSuccess={handleAchSuccess}
+                  />
+                )}
               </>
             ) : (
               <p style={{ fontSize: 13, color: C.textDim }}>
-                ACH is not available yet. Use wire transfer or contact us.
+                ACH is not available yet. Please contact us to complete funding.
               </p>
             )}
           </div>
@@ -556,8 +569,10 @@ export function FundingPanel({
                 I've mailed my check
               </button>
             ) : (
-              <p style={{ fontSize: 12, color: C.green, marginTop: 12 }}>
-                Check payment recorded as pending. We'll confirm once it clears.
+              <p style={{ fontSize: 12, color: C.green, marginTop: 12, lineHeight: 1.5 }}>
+                Check recorded as pending. Mail your certified check to the address above.
+                An admin will confirm once it is received and deposited — you are not funded
+                until then.
               </p>
             )}
           </div>

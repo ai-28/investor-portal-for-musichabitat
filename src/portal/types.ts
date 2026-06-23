@@ -1,5 +1,5 @@
 import type { CSSProperties, Dispatch, ReactNode, SetStateAction } from "react";
-import type { OfferingType } from "@/lib/portal/db-types";
+import type { OfferingType, PaymentStatus } from "@/lib/portal/db-types";
 
 /** Internal route key (legacy) or doc_view:id */
 export type RouteKey = string;
@@ -66,6 +66,8 @@ export interface PortalContextValue {
   hydrated: boolean;
   currentStep: number;
   offeringType: OfferingType | null;
+  paymentStatus: PaymentStatus | null;
+  privatePaymentStatus: PaymentStatus | null;
   signOut: () => Promise<void>;
   saveReferrer: (referrerId: string | null, rejected?: boolean) => Promise<void>;
   resumeRoute: () => string;

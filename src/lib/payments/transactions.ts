@@ -57,6 +57,25 @@ export async function findOpenAchTransaction(
   return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null;
 }
 
+export async function findSucceededAchTransaction(
+  investorId: string,
+  track: PaymentTrack,
+  amountCents: number,
+): Promise<PaymentTransactionRow | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM payment_transactions
+    WHERE investor_id = ${investorId}
+      AND track = ${track}
+      AND method = 'ach'
+      AND amount_cents = ${amountCents}
+      AND status = 'succeeded'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null;
+}
+
 export async function findPendingWireTransaction(
   investorId: string,
   track: PaymentTrack,
@@ -68,6 +87,25 @@ export async function findPendingWireTransaction(
     WHERE investor_id = ${investorId}
       AND track = ${track}
       AND method = 'wire'
+      AND amount_cents = ${amountCents}
+      AND status = 'pending'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  return rows[0] ? mapRow(rows[0] as Record<string, unknown>) : null;
+}
+
+export async function findPendingCheckTransaction(
+  investorId: string,
+  track: PaymentTrack,
+  amountCents: number,
+): Promise<PaymentTransactionRow | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM payment_transactions
+    WHERE investor_id = ${investorId}
+      AND track = ${track}
+      AND method = 'check'
       AND amount_cents = ${amountCents}
       AND status = 'pending'
     ORDER BY created_at DESC

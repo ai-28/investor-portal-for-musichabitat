@@ -23,7 +23,7 @@ import type {
   SignedMap,
 } from "@/portal/types";
 import { emptyPrivateApp } from "@/portal/types";
-import type { OfferingType } from "@/lib/portal/db-types";
+import type { OfferingType, PaymentStatus } from "@/lib/portal/db-types";
 import {
   applicationPatchForTrack,
   emptyApp,
@@ -60,6 +60,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [privateCurrentStep, setPrivateCurrentStep] = useState(2);
   const [privateCurrentRoute, setPrivateCurrentRoute] = useState<string | null>(null);
   const [offeringType, setOfferingType] = useState<OfferingType | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
+  const [privatePaymentStatus, setPrivatePaymentStatus] = useState<PaymentStatus | null>(
+    null,
+  );
   const [ndaSignedFf, setNdaSignedFf] = useState(false);
   const [ndaSignedPrivate, setNdaSignedPrivate] = useState(false);
 
@@ -92,6 +96,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       setPrivateCurrentStep(state.privateCurrentStep);
       setPrivateCurrentRoute(state.privateCurrentRoute);
       setOfferingType(state.offeringType);
+      setPaymentStatus(state.profile?.payment_status ?? null);
+      setPrivatePaymentStatus(state.profile?.private_payment_status ?? null);
       setNdaSignedFf(state.ndaSignedFf);
       setNdaSignedPrivate(state.ndaSignedPrivate);
       requestAnimationFrame(() => {
@@ -133,6 +139,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       setPrivateCurrentStep(2);
       setPrivateCurrentRoute(null);
       setOfferingType(null);
+      setPaymentStatus(null);
+      setPrivatePaymentStatus(null);
       setNdaSignedFf(false);
       setNdaSignedPrivate(false);
       return;
@@ -444,6 +452,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       hydrated,
       currentStep,
       offeringType,
+      paymentStatus,
+      privatePaymentStatus,
       signOut,
       saveReferrer,
       resumeRoute,
@@ -469,6 +479,8 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       hydrated,
       currentStep,
       offeringType,
+      paymentStatus,
+      privatePaymentStatus,
       signOut,
       saveReferrer,
       resumeRoute,
