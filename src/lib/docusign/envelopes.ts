@@ -9,6 +9,7 @@ import {
   getAppBaseUrl,
   resolveSigningPdfPath,
 } from "@/lib/docusign/config";
+import { sendNdaCountersignEmails } from "@/lib/email/send";
 import { buildCeoSignPortalUrl } from "@/lib/docusign/ceo-sign-link";
 import { applySignedDocs } from "@/lib/docusign/signing-profile";
 import { getProfile } from "@/lib/portal/profile";
@@ -279,15 +280,26 @@ async function notifyAfterInvestorSigned(
 
   await sleep(3000);
 
-  // DocuSign platform emails (NDA + step 8/10) — no Resend duplicate.
-  const envelopeResent = await resendPendingRecipientNotifications(envelopeId);
-  if (!envelopeResent) {
-    const ceoResent = await resendCeoCountersignNotification(envelopeId, ceo);
-    if (!ceoResent) {
+  const record = await getEnvelopeByDocuSignId(envelopeId);
+  if (!record) return;
+
+  try {
+    const portalUrl = `${getAppBaseUrl()}${signingPortalReturnPath(record.track, record.doc_id)}`;
+    const ceoSignUrl = buildCeoSignPortalUrl(envelopeId, record.track);
+    const appEmails = await sendNdaCountersignEmails({
+      investorEmail: investor?.email,
+      ceoEmail: ceo?.email ?? DOCUSIGN_CEO_EMAIL,
+      ceoSignUrl,
+      docLabel,
+      portalUrl,
+    });
+    if (!appEmails.ceo && !appEmails.investor) {
       console.warn(
-        `DocuSign could not resend countersign notifications for ${docLabel} (${envelopeId}). CEO can use the portal countersign link.`,
+        "DocuSign resend succeeded but no app email sent. Set RESEND_API_KEY or use the CEO countersign link from the portal.",
       );
     }
+  } catch (err) {
+    console.error("NDA countersign email/link failed:", err);
   }
 }
 
@@ -435,6 +447,16 @@ async function createEmbeddedSigningUrl(params: {
     throw new Error(data.message || "DocuSign signing URL failed.");
   }
   return data.url;
+}
+
+function ndaReturnPath(track: OfferingType): string {
+  return track === "private" ? "/nda/private" : "/nda/friends-family";
+}
+
+function signingPortalReturnPath(track: OfferingType, docId: string): string {
+  if (docId === "nda") return ndaReturnPath(track);
+  if (track === "private") return "/private/sign";
+  return "/step/10";
 }
 
 /** Signing URL for a recipient (embedded when clientUserId is set). */
