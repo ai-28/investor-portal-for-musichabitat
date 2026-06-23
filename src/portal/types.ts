@@ -80,14 +80,15 @@ export interface PortalContextValue {
     track?: OfferingType,
   ) => Promise<void>;
   acceptNda: (track: OfferingType, signerName?: string) => Promise<void>;
+  /** Advance past NDA after DocuSign shows fully executed mutual NDA. */
+  continueAfterNda: (track: OfferingType) => Promise<void>;
   /** Skip founder call scheduling — return to completion screen, not portal home. */
   finishFounderCallStep: (track: OfferingType) => Promise<void>;
 }
 
 export interface NDAGateProps extends BackProps {
+  track: OfferingType;
   accent?: string;
-  trackLabel?: string;
-  onAccept: () => void;
 }
 
 export interface BackProps {

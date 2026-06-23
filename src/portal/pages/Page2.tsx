@@ -28,10 +28,22 @@ export function Page2({ go, onBack }) {
   const { saveReferrer } = usePortal();
   const [picked, setPicked] = useState(null);
   const [stopped, setStopped] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const rejectReferrer = () => {
     setStopped(true);
     saveReferrer(null, true);
+  };
+
+  const continueWithReferrer = async () => {
+    if (!picked || busy) return;
+    setBusy(true);
+    try {
+      await saveReferrer(picked);
+      await go("page3");
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (stopped) {
@@ -82,6 +94,11 @@ export function Page2({ go, onBack }) {
         <Card onClick={rejectReferrer} style={{ textAlign: "center", marginBottom: 16 }}>
           <span style={{ color: C.textDim, fontSize: 14 }}>Someone else referred me</span>
         </Card>
+        {!picked && (
+          <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, margin: 0 }}>
+            Tap a team member above, then confirm below to continue.
+          </p>
+        )}
       </div>
 
       {picked && (
@@ -93,7 +110,9 @@ export function Page2({ go, onBack }) {
             </strong>.
           </p>
           <div style={{ display: "flex", gap: 10 }}>
-            <Btn variant="amber" onClick={() => { saveReferrer(picked); go("page3"); }}>Yes — Continue</Btn>
+            <Btn variant="amber" disabled={busy} onClick={() => void continueWithReferrer()}>
+              {busy ? "Saving…" : "Yes — Continue"}
+            </Btn>
             <Btn variant="ghost" onClick={rejectReferrer}>No</Btn>
           </div>
         </Card>

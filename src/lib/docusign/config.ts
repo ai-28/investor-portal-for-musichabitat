@@ -6,6 +6,9 @@ export const DOCUSIGN_CEO_EMAIL =
 export const DOCUSIGN_CEO_NAME =
   process.env.DOCUSIGN_CEO_NAME?.trim() || "Brandon Beard";
 
+/** Stable clientUserId for CEO embedded / freeform signing sessions. */
+export const DOCUSIGN_CEO_CLIENT_USER_ID = "music-habitat-ceo";
+
 import fs from "fs";
 import path from "path";
 
@@ -91,6 +94,11 @@ export function getDocuSignConsentUrl(): string {
   );
 }
 
+/** Mutual NDA PDF at public/assets/ (not under docs/). */
+export const MUTUAL_NDA_PDF_FILENAME = "MusicHabitat Mutual NDA v2.pdf";
+
+export const MUTUAL_NDA_PDF_URL = `/assets/${encodeURIComponent(MUTUAL_NDA_PDF_FILENAME)}`;
+
 /** PDF paths under public/assets/docs for each signing doc id. */
 export const SIGNING_PDF_FILES: Record<
   OfferingType,
@@ -112,10 +120,25 @@ export function signingPdfFilename(
   track: OfferingType,
   docId: string,
 ): string | null {
+  if (docId === "nda") return MUTUAL_NDA_PDF_FILENAME;
   return SIGNING_PDF_FILES[track]?.[docId] ?? null;
 }
 
+/** Absolute path to a signing PDF on disk. */
+export function resolveSigningPdfPath(
+  track: OfferingType,
+  docId: string,
+): string | null {
+  const filename = signingPdfFilename(track, docId);
+  if (!filename) return null;
+  if (docId === "nda") {
+    return path.join(process.cwd(), "public", "assets", filename);
+  }
+  return path.join(process.cwd(), "public", "assets", "docs", filename);
+}
+
 export const SIGNING_DOC_LABELS: Record<string, string> = {
+  nda: "Mutual Non-Disclosure Agreement",
   safe: "SAFE Agreement",
   warrant: "Warrant Agreement",
   subscription: "Subscription Agreement & Questionnaire",

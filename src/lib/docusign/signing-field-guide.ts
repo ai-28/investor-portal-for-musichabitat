@@ -8,6 +8,20 @@ export interface SigningFieldGuide {
 }
 
 export const SIGNING_FIELD_GUIDES: Record<string, SigningFieldGuide> = {
+  nda: {
+    signaturePageHint: "last page — Music Habitat column on the left (CEO) / Counterparty on the right (you)",
+    investorFields: [
+      "NAME (text)",
+      "SIGNATURE",
+      "DATE",
+      "EMAIL (text)",
+    ],
+    ceoFields: [
+      "Signature (Music Habitat column, left)",
+      "DATE",
+      "EMAIL (text)",
+    ],
+  },
   safe: {
     signaturePageHint: "last page — INVESTOR column on the right",
     investorFields: [
@@ -76,4 +90,4 @@ export function getSigningFieldGuide(docId: string): SigningFieldGuide | null {
 }
 
 /** Bump when envelope creation strategy changes — non-completed envelopes are recreated. */
-export const DOCUSIGN_ENVELOPE_MODE_VERSION = 5;
+export const DOCUSIGN_ENVELOPE_MODE_VERSION = 11;

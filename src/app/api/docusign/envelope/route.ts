@@ -36,7 +36,13 @@ export async function POST(request: Request) {
     const investorEmail = body.investor?.email?.trim() || user.email;
 
     const returnPath =
-      track === "private" ? "/private/sign" : "/step/10";
+      docId === "nda"
+        ? track === "private"
+          ? "/nda/private"
+          : "/nda/friends-family"
+        : track === "private"
+          ? "/private/sign"
+          : "/step/10";
     const returnUrl = `${getAppBaseUrl()}${returnPath}?docusign=done&doc=${encodeURIComponent(docId)}`;
 
     const session = await startSigningSession({

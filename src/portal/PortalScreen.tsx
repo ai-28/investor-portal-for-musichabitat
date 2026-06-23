@@ -92,22 +92,16 @@ export function PortalScreen() {
     case "nda_ff":
       return (
         <NDAGate
+          track="friends_family"
           accent={C.amber}
-          trackLabel="the Circle 35 Friends & Family offering"
-          onAccept={(signerName) => {
-            void acceptNda("friends_family", signerName);
-          }}
           onBack={() => go("gate_ff")}
         />
       );
     case "nda_private":
       return (
         <NDAGate
+          track="private"
           accent={C.teal}
-          trackLabel="the Music Habitat Private Offering"
-          onAccept={(signerName) => {
-            void acceptNda("private", signerName);
-          }}
           onBack={() => go("gate_private")}
         />
       );

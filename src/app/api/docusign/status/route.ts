@@ -31,7 +31,13 @@ export async function GET(request: Request) {
       });
     }
 
-    const docIds = docIdsForTrack(track);
+    const docIdsParam = searchParams.get("docIds");
+    const docIds = docIdsParam
+      ? docIdsParam
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : docIdsForTrack(track);
     const sync = searchParams.get("sync") === "1";
     const { signed, statuses } = await refreshTrackSigningState(
       user.id,

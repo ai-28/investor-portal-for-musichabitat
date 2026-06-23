@@ -31,10 +31,6 @@ export function Page1({ go, openExecSummary }) {
     { key: "private", icon: "🏛", title: "Private Offering", sub: "Accredited Investors · Reg D 506(c) · min $2,500",
       tag: "Accredited Access", term: "Priced Class B", accent: C.teal,
       action: () => go("gate_private") },
-    { key: "crowd", icon: "🚀", title: "Equity Crowdfunding", sub: "Public Offering",
-      tag: "Coming Soon", tagColor: C.red, term: "6-Month Term", accent: C.textFaint,
-      action: () => { /* BACKEND HOOK: external crowdfunding platform URL */
-        window.open("https://musichabitat.com/invest-public", "_blank"); } },
   ];
   return (
     <Shell>

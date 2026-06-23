@@ -34,6 +34,82 @@ const PRIVATE_PROGRESS_ROUTES = new Set([
   "pp_call",
 ]);
 
+/** Ordered routes — investors may not skip ahead via URL past their saved progress. */
+export const FF_ROUTE_ORDER: string[] = [
+  "nda_ff",
+  "page2",
+  "page3",
+  "page4",
+  "page5",
+  "page6",
+  "page7",
+  "page8",
+  "page9",
+  "page10",
+  "page11",
+  "page12",
+  "page13",
+];
+
+export const PRIVATE_ROUTE_ORDER: string[] = [
+  "nda_private",
+  "pp_welcome_ceo",
+  "pp_overview",
+  "pp_docs",
+  "pp_qa",
+  "pp_apply",
+  "pp_reserve",
+  "pp_ack",
+  "pp_sign",
+  "pp_fund",
+  "pp_welcome",
+  "pp_call",
+];
+
+export function routeOrderIndex(
+  track: OfferingType,
+  route: string,
+): number | null {
+  const order = track === "private" ? PRIVATE_ROUTE_ORDER : FF_ROUTE_ORDER;
+  const idx = order.indexOf(route);
+  return idx >= 0 ? idx : null;
+}
+
+/** Furthest route the investor has earned (saved progress). */
+export function maxProgressRouteForTrack(
+  track: OfferingType,
+  ndaSignedFf: boolean,
+  ndaSignedPrivate: boolean,
+  ffRoute: string | null,
+  privateRoute: string | null,
+): string {
+  if (track === "private") {
+    if (!ndaSignedPrivate) return "nda_private";
+    return privateRoute ?? "pp_welcome_ceo";
+  }
+  if (!ndaSignedFf) return "nda_ff";
+  return ffRoute ?? "page2";
+}
+
+export function isTrackGatedRoute(route: string): boolean {
+  return (
+    routeOrderIndex("friends_family", route) != null ||
+    routeOrderIndex("private", route) != null
+  );
+}
+
+/** True when target route is later than the furthest route the user has earned. */
+export function isRouteAheadOfAllowed(
+  track: OfferingType,
+  targetRoute: string,
+  allowedRoute: string,
+): boolean {
+  const targetIdx = routeOrderIndex(track, targetRoute);
+  const allowedIdx = routeOrderIndex(track, allowedRoute);
+  if (targetIdx == null || allowedIdx == null) return false;
+  return targetIdx > allowedIdx;
+}
+
 export function routeToTrack(route: string): OfferingType | null {
   if (PRIVATE_PROGRESS_ROUTES.has(route) || route === "nda_private" || route === "gate_private") {
     return "private";

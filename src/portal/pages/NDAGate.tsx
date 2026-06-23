@@ -1,104 +1,315 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { C, FONT_DISPLAY, FONT_BODY } from "@/portal/tokens";
+import { useEffect, useState } from "react";
+import { C, FONT_DISPLAY } from "@/portal/tokens";
 import { Shell } from "@/portal/ui/Shell";
 import { H, Kicker } from "@/portal/ui/Typography";
 import { Btn } from "@/portal/ui/Button";
 import { Card } from "@/portal/ui/Card";
-import { Field } from "@/portal/ui/Field";
-import { Countdown } from "@/portal/ui/Countdown";
-import { BadgeMark } from "@/portal/ui/BadgeMark";
-import { Avatar } from "@/portal/ui/Avatar";
-import { StepNav } from "@/portal/ui/StepNav";
 import { DocuSignMark } from "@/portal/ui/DocuSignMark";
-import { GuardianBadge } from "@/portal/ui/GuardianBadge";
-import { BrandonSignature } from "@/portal/ui/BrandonSignature";
-import { EXEC_SUMMARY, REFERRERS, DOC_CENTER, QA } from "@/portal/data/content";
-import { PHOTO_MAP, BRANDON_PHOTO } from "@/portal/data/photos";
-import { CEO_VIDEO_URL, CEO_VIDEO_KIND, WELCOME_BG } from "@/portal/data/media";
-import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
-import { STOCK_CERT_IMG } from "@/portal/data/photos";
-import { achInput } from "@/portal/lib/ach";
-import { achLabel, achErr } from "@/portal/data/ach-labels";
+import { usePortal } from "@/portal/PortalProvider";
+import { useSigningFlow } from "@/portal/hooks/useSigningFlow";
+import { MUTUAL_NDA_PDF_URL } from "@/portal/data/doc-config";
+import { SigningFieldGuidePanel } from "@/portal/ui/SigningFieldGuide";
+import type { OfferingType } from "@/lib/portal/db-types";
 
-import { ndaClauses, downloadNDA } from "@/portal/lib/nda";
+const NDA_DOC_ID = "nda";
+const NDA_DOC_IDS = [NDA_DOC_ID];
 
-export function NDAGate({ accent = C.amber, trackLabel = "this offering", onAccept, onBack }) {
-  const [name, setName] = useState("");
-  const [agreed, setAgreed] = useState(false);
-  const today = new Date().toLocaleDateString("en-US",
-    { year: "numeric", month: "long", day: "numeric" });
-  const canProceed = name.trim().length >= 2 && agreed;
-  const CLAUSES = ndaClauses(trackLabel);
+export function NDAGate({
+  track,
+  accent = C.amber,
+  onBack,
+}: {
+  track: OfferingType;
+  accent?: string;
+  onBack: () => void;
+}) {
+  const { user, continueAfterNda, refreshState } = usePortal();
+  const [ndaSigned, setNdaSigned] = useState<Record<string, boolean>>({});
+  const [ceoSignUrl, setCeoSignUrl] = useState("");
+  const [ceoLinkBusy, setCeoLinkBusy] = useState(false);
+
+  const investorName =
+    user?.email?.split("@")[0] || "Investor";
+  const investor = { fullName: investorName, email: user?.email ?? "" };
+
+  const { enabled, busy, error, statuses, signOne, downloadDoc, statusLabel, refreshStatus } =
+    useSigningFlow({
+      track,
+      signed: ndaSigned,
+      setSigned: setNdaSigned,
+      investor,
+      docIds: NDA_DOC_IDS,
+    });
+
+  const status = statuses[NDA_DOC_ID];
+  const fullyExecuted = Boolean(ndaSigned[NDA_DOC_ID]);
+  const investorSignedAwaitingCeo = status === "investor_signed";
+  const awaitingInvestorSign = status === "sent";
+  const canDownload =
+    status === "investor_signed" || status === "completed";
+
+  useEffect(() => {
+    if (!investorSignedAwaitingCeo && !awaitingInvestorSign) return;
+    const id = window.setInterval(() => refreshStatus(true), 5000);
+    return () => window.clearInterval(id);
+  }, [investorSignedAwaitingCeo, awaitingInvestorSign, refreshStatus]);
+
+  useEffect(() => {
+    if (!investorSignedAwaitingCeo) {
+      setCeoSignUrl("");
+      return;
+    }
+    setCeoLinkBusy(true);
+    fetch(
+      `/api/docusign/ceo-sign-url?track=${track}&docId=${encodeURIComponent(NDA_DOC_ID)}`,
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.url) setCeoSignUrl(data.url);
+      })
+      .catch(() => {})
+      .finally(() => setCeoLinkBusy(false));
+  }, [investorSignedAwaitingCeo, track]);
+
+  useEffect(() => {
+    if (fullyExecuted) refreshState().catch(() => {});
+  }, [fullyExecuted, refreshState]);
 
   return (
     <Shell onBack={onBack}>
       <div style={{ paddingTop: 28, textAlign: "center" }}>
         <div style={{ fontSize: 32 }}>🔏</div>
         <Kicker color={accent}>Before You Continue</Kicker>
-        <H size={26}>Non-Disclosure Agreement</H>
-        <p style={{ color: C.textDim, fontSize: 13.5, lineHeight: 1.6, margin: "10px 0 0" }}>
-          The materials ahead are confidential. Please read this agreement in full, then sign
-          below to proceed.
+        <H size={26}>Mutual Non-Disclosure Agreement</H>
+        <p
+          style={{
+            color: C.textDim,
+            fontSize: 13.5,
+            lineHeight: 1.6,
+            margin: "10px 0 0",
+          }}
+        >
+          Review the mutual NDA below. Both you and Music Habitat (Brandon Beard, CEO)
+          must sign via DocuSign before you can access offering materials.
         </p>
+        <p
+          style={{
+            color: C.textFaint,
+            fontSize: 12,
+            lineHeight: 1.5,
+            margin: "8px 0 0",
+          }}
+        >
+          In DocuSign: open the Signature Page, use <strong>Add Fields</strong> for
+          Signature / Date / Text in your column (right / Counterparty), then click{" "}
+          <strong>Finish</strong>. Closing the window without Finish does not count as
+          signed.
+        </p>
+        {!fullyExecuted && (
+          <SigningFieldGuidePanel
+            docId={NDA_DOC_ID}
+            docName="Mutual NDA"
+            investorName={investorName}
+            investorEmail={user?.email}
+          />
+        )}
       </div>
 
-      {/* Download */}
-      <div style={{ marginTop: 16 }}>
-        <Btn variant={accent === C.teal ? "teal" : "ghost"}
-          onClick={() => downloadNDA(trackLabel, name.trim())}>
-          ⬇ Download / Print NDA
-        </Btn>
-      </div>
-
-      {/* Full agreement — renders inline and scrolls with the page (no inner scroll box) */}
-      <Card style={{ marginTop: 14, padding: "4px 16px 12px" }}>
-        <div style={{ fontSize: 11, color: C.textFaint, textTransform: "uppercase",
-          letterSpacing: 1, fontFamily: FONT_DISPLAY, padding: "12px 0 2px" }}>
-          Non-Disclosure Agreement
+      <Card style={{ marginTop: 18, padding: "18px 16px", textAlign: "center" }}>
+        <div
+          style={{
+            fontSize: 11,
+            color: C.textFaint,
+            letterSpacing: 1,
+            textTransform: "uppercase",
+            fontFamily: FONT_DISPLAY,
+            marginBottom: 10,
+          }}
+        >
+          MusicHabitat Mutual NDA v2.pdf
         </div>
-        <p style={{ fontSize: 12, color: C.textDim, fontStyle: "italic", margin: "0 0 4px",
-          lineHeight: 1.5 }}>
-          A unilateral confidentiality agreement from you (the “Recipient”) to Music Habitat, Inc.
-          (the “Company”).
-        </p>
-        {CLAUSES.map(([h, body], i) => (
-          <div key={i} style={{ padding: "11px 0", borderTop: `1px solid ${C.line}` }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 5 }}>{h}</div>
-            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: C.textDim, margin: 0 }}>{body}</p>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <Btn
+            variant={accent === C.teal ? "teal" : "ghost"}
+            onClick={() =>
+              window.open(MUTUAL_NDA_PDF_URL, "_blank", "noopener,noreferrer")
+            }
+          >
+            View in New Tab
+          </Btn>
+          <Btn
+            variant={accent === C.teal ? "teal" : "ghost"}
+            onClick={() => {
+              const anchor = document.createElement("a");
+              anchor.href = MUTUAL_NDA_PDF_URL;
+              anchor.download = "MusicHabitat Mutual NDA v2.pdf";
+              anchor.click();
+            }}
+          >
+            Download PDF
+          </Btn>
+        </div>
+      </Card>
+
+      <Card
+        style={{
+          marginTop: 14,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          borderColor: fullyExecuted ? C.green : C.line,
+        }}
+      >
+        <DocuSignMark size={22} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>Mutual NDA</div>
+          <div
+            style={{
+              fontSize: 11,
+              color: fullyExecuted ? C.green : C.textFaint,
+              textTransform: "uppercase",
+              letterSpacing: 0.5,
+              marginTop: 2,
+            }}
+          >
+            {statusLabel(status, enabled)}
           </div>
-        ))}
-      </Card>
-
-      <Field label="Type your full legal name to sign" value={name} onChange={setName}
-        placeholder="Jane Q. Investor" />
-      <div style={{ fontSize: 11, color: C.textFaint, margin: "-6px 2px 14px" }}>
-        Dated {today}. Your typed name is your electronic signature, as Recipient.
-      </div>
-
-      <Card onClick={() => setAgreed((a) => !a)} style={{ display: "flex", gap: 12,
-        cursor: "pointer", alignItems: "flex-start" }}>
-        <div style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1,
-          border: `1px solid ${agreed ? C.green : C.lineHi}`,
-          background: agreed ? C.green : "transparent", display: "flex",
-          alignItems: "center", justifyContent: "center", fontSize: 12, color: "#000" }}>
-          {agreed ? "✓" : ""}
         </div>
-        <span style={{ fontSize: 13, lineHeight: 1.5, color: C.textDim }}>
-          As Recipient, I have read and agree to this Non-Disclosure Agreement, and I understand
-          the materials I am about to access are confidential and provided for my evaluation only.
-        </span>
+        {canDownload && (
+          <button
+            type="button"
+            onClick={() => downloadDoc(NDA_DOC_ID)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 8,
+              background: C.cardHi,
+              color: C.text,
+              border: `1px solid ${C.line}`,
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: "pointer",
+              fontFamily: FONT_DISPLAY,
+            }}
+          >
+            Download
+          </button>
+        )}
+        {!fullyExecuted && (
+          <button
+            type="button"
+            onClick={() => signOne(NDA_DOC_ID)}
+            disabled={busy === NDA_DOC_ID}
+            style={{
+              padding: "9px 16px",
+              borderRadius: 8,
+              background: busy === NDA_DOC_ID ? C.lineHi : accent,
+              color: accent === C.teal ? "#04252A" : "#1A1206",
+              border: "none",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: busy === NDA_DOC_ID ? "wait" : "pointer",
+              fontFamily: FONT_DISPLAY,
+            }}
+          >
+            {busy === NDA_DOC_ID ? "Opening…" : "Sign NDA"}
+          </button>
+        )}
       </Card>
 
-      <Btn variant={accent === C.teal ? "teal" : "amber"}
-        onClick={() => canProceed && onAccept(name.trim())}
-        disabled={!canProceed}>
-        Agree &amp; Continue
+      {!enabled && (
+        <p
+          style={{
+            fontSize: 12,
+            color: C.textFaint,
+            lineHeight: 1.5,
+            marginTop: 10,
+            textAlign: "center",
+          }}
+        >
+          DocuSign is not configured — demo mode simulates signature on click.
+        </p>
+      )}
+
+      {investorSignedAwaitingCeo && (
+        <Card style={{ marginTop: 14, padding: "16px 14px" }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              marginBottom: 8,
+              color: C.text,
+            }}
+          >
+            CEO countersign
+          </div>
+          <p
+            style={{
+              fontSize: 12,
+              color: C.textDim,
+              lineHeight: 1.55,
+              margin: "0 0 12px",
+            }}
+          >
+            This link does not expire. In DocuSign: last page → <strong>Add Fields</strong> →
+            place Signature / Date / Text on the <strong>Music Habitat</strong> column
+            (left), then <strong>Finish</strong>.
+          </p>
+          <SigningFieldGuidePanel docId={NDA_DOC_ID} docName="CEO — Music Habitat column" />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+            <Btn
+              variant={accent === C.teal ? "teal" : "amber"}
+              disabled={!ceoSignUrl || ceoLinkBusy}
+              onClick={() =>
+                ceoSignUrl &&
+                window.open(ceoSignUrl, "_blank", "noopener,noreferrer")
+              }
+            >
+              {ceoLinkBusy ? "Loading link…" : "Open CEO countersign"}
+            </Btn>
+            <Btn
+              variant="ghost"
+              disabled={!ceoSignUrl}
+              onClick={() => {
+                if (ceoSignUrl) navigator.clipboard.writeText(ceoSignUrl);
+              }}
+            >
+              Copy link for CEO
+            </Btn>
+          </div>
+          <p
+            style={{
+              fontSize: 11,
+              color: C.textFaint,
+              marginTop: 10,
+              lineHeight: 1.5,
+            }}
+          >
+            This page updates automatically after the CEO finishes. You can download
+            the current PDF above while waiting.
+          </p>
+        </Card>
+      )}
+
+      {error ? (
+        <p style={{ fontSize: 12, color: C.red, marginTop: 10, lineHeight: 1.5 }}>
+          {error}
+        </p>
+      ) : null}
+
+      <Btn
+        variant={accent === C.teal ? "teal" : "amber"}
+        onClick={() => fullyExecuted && continueAfterNda(track)}
+        disabled={!fullyExecuted}
+        style={{ marginTop: 16 }}
+      >
+        Continue
       </Btn>
-      {!canProceed && (
+      {!fullyExecuted && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
-          Type your full legal name and check the box to continue.
+          Sign the NDA above. You can continue once both you and the CEO have fully executed
+          the agreement.
         </p>
       )}
     </Shell>

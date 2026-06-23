@@ -29,13 +29,16 @@ import {
   emptyApp,
   isFfProgressRoute,
   isPrivateProgressRoute,
+  isTrackGatedRoute,
+  isRouteAheadOfAllowed,
+  maxProgressRouteForTrack,
   profileToPortalState,
   resumeRouteFromProfile,
   routeToStep,
   routeToTrack,
   trackRoutePatch,
 } from "@/lib/portal/state";
-import { fetchPortalState, patchPortalState } from "@/lib/portal/sync-client";
+import { fetchPortalState, patchPortalState, PortalSessionInvalidError } from "@/lib/portal/sync-client";
 
 const PortalContext = createContext<PortalContextValue | null>(null);
 
@@ -112,11 +115,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       const state = await fetchPortalState();
       if (state) applyPortalState(state);
     } catch (err) {
+      if (err instanceof PortalSessionInvalidError) {
+        await nextAuthSignOut({ redirect: false });
+        router.push("/");
+        return;
+      }
       console.error("Failed to hydrate portal state", err);
     } finally {
       setHydrated(true);
     }
-  }, [applyPortalState]);
+  }, [applyPortalState, router]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -172,6 +180,11 @@ export function PortalProvider({ children }: { children: ReactNode }) {
           private_current_step: privateCurrentStep,
         });
       } catch (err) {
+        if (err instanceof PortalSessionInvalidError) {
+          await nextAuthSignOut({ redirect: false });
+          router.push("/");
+          return;
+        }
         console.error("Failed to sync portal state", err);
       }
     }, 500);
@@ -189,11 +202,47 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     privateCurrentStep,
     privateCurrentRoute,
     offeringType,
+    router,
   ]);
 
   useEffect(() => {
     queueFullSync();
   }, [app, papp, read, acks, signed, packs, psigned, queueFullSync]);
+
+  /** Block skipping ahead by typing URLs; only saved progress routes are reachable. */
+  useEffect(() => {
+    if (!hydrated || skipSyncRef.current || !user) return;
+
+    const track = routeToTrack(route);
+    if (!track || !isTrackGatedRoute(route)) return;
+
+    const trackRoute =
+      track === "private" ? privateCurrentRoute : ffCurrentRoute;
+    const trackStep =
+      track === "private" ? privateCurrentStep : ffCurrentStep;
+    const allowedRoute = maxProgressRouteForTrack(
+      track,
+      ndaSignedFf,
+      ndaSignedPrivate,
+      ffCurrentRoute,
+      privateCurrentRoute,
+    );
+
+    if (isRouteAheadOfAllowed(track, route, allowedRoute)) {
+      router.replace(routeToPath(allowedRoute));
+    }
+  }, [
+    route,
+    hydrated,
+    user,
+    ffCurrentRoute,
+    ffCurrentStep,
+    privateCurrentRoute,
+    privateCurrentStep,
+    ndaSignedFf,
+    ndaSignedPrivate,
+    router,
+  ]);
 
   /** Keep active track aligned with URL; block cross-track browser history leaks. */
   useEffect(() => {
@@ -201,7 +250,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
     const urlTrack = routeToTrack(route);
 
-    if (urlTrack === "friends_family" && isFfProgressRoute(route)) {
+    if (
+      urlTrack === "friends_family" &&
+      (isFfProgressRoute(route) || route === "nda_ff")
+    ) {
       if (offeringType === "private") {
         router.replace(
           routeToPath(privateCurrentRoute ?? "pp_welcome_ceo"),
@@ -210,6 +262,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
       setOfferingType("friends_family");
       const step = routeToStep(route);
+      const allowedRoute = maxProgressRouteForTrack(
+        "friends_family",
+        ndaSignedFf,
+        ndaSignedPrivate,
+        ffCurrentRoute,
+        privateCurrentRoute,
+      );
+      if (isRouteAheadOfAllowed("friends_family", route, allowedRoute)) {
+        return;
+      }
       setCurrentRoute(route);
       if (step) setCurrentStep(step);
       if (ffCurrentRoute !== route) {
@@ -226,12 +288,25 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (urlTrack === "private" && isPrivateProgressRoute(route)) {
+    if (
+      urlTrack === "private" &&
+      (isPrivateProgressRoute(route) || route === "nda_private")
+    ) {
       if (offeringType === "friends_family") {
         router.replace(routeToPath(ffCurrentRoute ?? "page2"));
         return;
       }
       setOfferingType("private");
+      const allowedRoute = maxProgressRouteForTrack(
+        "private",
+        ndaSignedFf,
+        ndaSignedPrivate,
+        ffCurrentRoute,
+        privateCurrentRoute,
+      );
+      if (isRouteAheadOfAllowed("private", route, allowedRoute)) {
+        return;
+      }
       setCurrentRoute(route);
       if (privateCurrentRoute !== route) {
         setPrivateCurrentRoute(route);
@@ -254,7 +329,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   ]);
 
   const go = useCallback(
-    (nextRoute: string, options?: { replace?: boolean }) => {
+    async (nextRoute: string, options?: { replace?: boolean }) => {
       const step = routeToStep(nextRoute);
       const track = routeToTrack(nextRoute);
 
@@ -272,10 +347,15 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       }
 
       if (user && !skipSyncRef.current) {
-        patchPortalState({
-          ...trackRoutePatch(nextRoute, step),
-          ...(track ? { offering_type: track } : {}),
-        }).catch((err) => console.error("Failed to save route", err));
+        try {
+          const state = await patchPortalState({
+            ...trackRoutePatch(nextRoute, step),
+            ...(track ? { offering_type: track } : {}),
+          });
+          applyPortalState(state);
+        } catch (err) {
+          console.error("Failed to save route", err);
+        }
       }
 
       const path = routeToPath(nextRoute);
@@ -283,7 +363,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       else router.push(path);
       if (typeof window !== "undefined") window.scrollTo(0, 0);
     },
-    [router, user],
+    [router, user, applyPortalState],
   );
 
   const markRead = useCallback((id: string) => {
@@ -343,15 +423,20 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     await hydrateFromServer();
   }, [userId, hydrateFromServer]);
 
-  const acceptNda = useCallback(
-    async (track: OfferingType, signerName?: string) => {
+  const continueAfterNda = useCallback(
+    async (track: OfferingType) => {
       const firstRoute = track === "private" ? "pp_welcome_ceo" : "page2";
-      if (track === "private") setNdaSignedPrivate(true);
-      else setNdaSignedFf(true);
+      const now = new Date().toISOString();
+      const ndaPatch =
+        track === "private"
+          ? { nda_signed_private: true, nda_signed_private_at: now }
+          : { nda_signed_ff: true, nda_signed_ff_at: now };
+
       setOfferingType(track);
       setCurrentRoute(firstRoute);
-      if (track === "private") setPrivateCurrentRoute(firstRoute);
-      else {
+      if (track === "private") {
+        setPrivateCurrentRoute(firstRoute);
+      } else {
         setFfCurrentRoute(firstRoute);
         setFfCurrentStep(2);
       }
@@ -361,34 +446,25 @@ export function PortalProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const now = new Date().toISOString();
         const state = await patchPortalState({
-          nda_signed_ff: track === "friends_family" ? true : undefined,
-          nda_signed_private: track === "private" ? true : undefined,
-          nda_signer_name: signerName,
-          nda_signed_ff_at: track === "friends_family" ? now : undefined,
-          nda_signed_private_at: track === "private" ? now : undefined,
           offering_type: track,
+          ...ndaPatch,
           ...trackRoutePatch(firstRoute, track === "friends_family" ? 2 : null),
         });
         applyPortalState(state);
-        const trackRoute =
-          track === "private" ? state.privateCurrentRoute : state.ffCurrentRoute;
-        const trackStep =
-          track === "private" ? state.privateCurrentStep : state.ffCurrentStep;
-        const nextRoute = resumeRouteFromProfile(
-          track,
-          trackRoute,
-          state.ndaSignedFf,
-          state.ndaSignedPrivate,
-          trackStep,
-        );
-        go(nextRoute);
+        go(firstRoute);
       } catch (err) {
-        console.error("Failed to save NDA acceptance", err);
+        console.error("Failed to continue after NDA", err);
       }
     },
     [user, applyPortalState, go],
+  );
+
+  const acceptNda = useCallback(
+    async (track: OfferingType, signerName?: string) => {
+      await continueAfterNda(track);
+    },
+    [continueAfterNda],
   );
 
   const markApplicationSubmitted = useCallback(async () => {
@@ -501,6 +577,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       resumeRoute,
       refreshState,
       acceptNda,
+      continueAfterNda,
       markApplicationSubmitted,
       recordPaymentStatus,
       finishFounderCallStep,
@@ -531,6 +608,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       resumeRoute,
       refreshState,
       acceptNda,
+      continueAfterNda,
       markApplicationSubmitted,
       recordPaymentStatus,
       finishFounderCallStep,

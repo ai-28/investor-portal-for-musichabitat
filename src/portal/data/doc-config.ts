@@ -98,6 +98,9 @@ export const FUNDING = {
 
 export const CALENDLY_URL = "";
 
+/** Mutual NDA PDF served from public/assets/ */
+export const MUTUAL_NDA_PDF_URL = `/assets/${encodeURIComponent("MusicHabitat Mutual NDA v2.pdf")}`;
+
 // ---- Prototype visuals + live link ------------------------------------------
 export const PROTOTYPE_IMAGES = [
   "/assets/prototype/1.png",

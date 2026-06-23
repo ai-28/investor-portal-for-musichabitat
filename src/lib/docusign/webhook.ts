@@ -1,11 +1,12 @@
 import crypto from "crypto";
 import type { OfferingType } from "@/lib/portal/db-types";
-import { getProfile, updateProfile } from "@/lib/portal/profile";
+import { getProfile } from "@/lib/portal/profile";
 import {
   getEnvelopeByDocuSignId,
   type EnvelopeStatus,
 } from "@/lib/docusign/store";
 import { syncEnvelopeFromDocuSign, syncEnvelopeFromDocuSignSafe } from "@/lib/docusign/envelopes";
+import { applySignedDocs } from "@/lib/docusign/signing-profile";
 
 export function verifyDocuSignWebhook(
   rawBody: string,
@@ -53,39 +54,6 @@ function extractEvent(payload: unknown): string {
   if (typeof data.event === "string") return data.event;
   if (typeof data.Event === "string") return data.Event;
   return "";
-}
-
-async function applySignedDocs(
-  userId: string,
-  email: string,
-  track: OfferingType,
-  docId: string,
-  completed: boolean,
-): Promise<void> {
-  if (!completed) return;
-
-  const profile = await getProfile(userId);
-  const signedKey = track === "private" ? "psigned" : "signed";
-  const existing =
-    track === "private"
-      ? ((profile?.private_signed ?? {}) as Record<string, boolean>)
-      : ((profile?.signed_docs ?? {}) as Record<string, boolean>);
-
-  const nextSigned = { ...existing, [docId]: true };
-  const allDocIds = ["safe", "warrant", "subscription"];
-
-  const allDone = allDocIds.every((id) => nextSigned[id]);
-
-  await updateProfile(userId, email, {
-    ...(signedKey === "psigned"
-      ? { psigned: nextSigned }
-      : { signed: nextSigned }),
-    ...(allDone
-      ? track === "private"
-        ? { private_application_status: "signed" }
-        : { application_status: "signed" }
-      : {}),
-  });
 }
 
 export async function handleDocuSignWebhookPayload(
