@@ -29,6 +29,7 @@ export function PPDocs({ go, onBack, read, markRead }) {
     (d, i, arr) => arr.findIndex((x) => x.id === d.id) === i,
   );
   const readCount = allDocs.filter((d) => read[d.id]).length;
+  const allRead = readCount === allDocs.length;
   const pct = Math.round((readCount / allDocs.length) * 100);
 
   const DocRow = ({ d }) => (
@@ -97,7 +98,14 @@ export function PPDocs({ go, onBack, read, markRead }) {
         </Card>
       </div>
 
-      <Btn variant="teal" onClick={() => go("pp_qa")}>Continue</Btn>
+      <Btn variant="teal" disabled={!allRead} onClick={() => go("pp_qa")}>
+        Continue
+      </Btn>
+      {!allRead && (
+        <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
+          Open each document above to continue.
+        </p>
+      )}
     </Shell>
   );
 }

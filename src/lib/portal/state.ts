@@ -98,18 +98,32 @@ export function isTrackGatedRoute(route: string): boolean {
   );
 }
 
-/** Use pending navigation target when it is ahead of saved progress (optimistic Continue). */
-export function effectiveProgressRoute(
+/** URL route is the saved route or a later step (forward navigation, not browser back). */
+export function isRouteAtOrAheadOfProgress(
   track: OfferingType,
+  urlRoute: string,
   savedRoute: string | null,
-  pendingRoute: string | null,
+): boolean {
+  if (!savedRoute) return true;
+  const urlIdx = routeOrderIndex(track, urlRoute);
+  const savedIdx = routeOrderIndex(track, savedRoute);
+  if (urlIdx == null || savedIdx == null) return urlRoute === savedRoute;
+  return urlIdx >= savedIdx;
+}
+
+/** Pick the furthest route between two saved progress markers. */
+export function furthestRoute(
+  track: OfferingType,
+  a: string | null,
+  b: string | null,
 ): string | null {
-  if (!pendingRoute || routeToTrack(pendingRoute) !== track) return savedRoute;
-  const pendingIdx = routeOrderIndex(track, pendingRoute);
-  const savedIdx = savedRoute ? routeOrderIndex(track, savedRoute) : null;
-  if (pendingIdx == null) return savedRoute;
-  if (savedIdx == null || pendingIdx > savedIdx) return pendingRoute;
-  return savedRoute;
+  if (!a) return b;
+  if (!b) return a;
+  const aIdx = routeOrderIndex(track, a);
+  const bIdx = routeOrderIndex(track, b);
+  if (aIdx == null) return b;
+  if (bIdx == null) return a;
+  return aIdx >= bIdx ? a : b;
 }
 
 /** True when target route is later than the furthest route the user has earned. */

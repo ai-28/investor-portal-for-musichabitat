@@ -158,8 +158,7 @@ export function PPApply({ go, onBack, papp, setPapp }) {
         evidence of accredited status for each 506(c) investor.
       </p>
 
-      <Btn variant="teal" onClick={saveAndContinue}
-        style={{ opacity: canSubmit ? 1 : 0.5 }}>
+      <Btn variant="teal" disabled={!canSubmit} onClick={saveAndContinue}>
         Continue
       </Btn>
       {!canSubmit && (

@@ -1,12 +1,16 @@
 import type { CSSProperties, Dispatch, ReactNode, SetStateAction } from "react";
-import type { OfferingType, PaymentStatus } from "@/lib/portal/db-types";
+import type {
+  OfferingType,
+  PaymentStatus,
+  PortalStatePatch,
+} from "@/lib/portal/db-types";
 
 /** Internal route key (legacy) or doc_view:id */
 export type RouteKey = string;
 
 export type GoFn = (
   route: RouteKey,
-  options?: { replace?: boolean },
+  options?: { replace?: boolean; patch?: PortalStatePatch },
 ) => Promise<void>;
 
 export type AuthMode = "signin" | "signup";

@@ -100,8 +100,7 @@ export function PPSign({ go, onBack, psigned, setPsigned, papp }) {
           />
         ))}
 
-      <Btn variant="teal" onClick={() => allSigned && go("pp_fund")}
-        style={{ opacity: allSigned ? 1 : 0.5 }}>
+      <Btn variant="teal" disabled={!allSigned} onClick={() => go("pp_fund")}>
         Continue to Funding
       </Btn>
       {!allSigned && (

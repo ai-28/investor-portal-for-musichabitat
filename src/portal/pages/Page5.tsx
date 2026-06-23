@@ -25,6 +25,7 @@ import { achLabel, achErr } from "@/portal/data/ach-labels";
 export function Page5({ go, onBack, read, markRead }) {
   const allDocs = [...DOC_CENTER.company, ...DOC_CENTER.investor];
   const readCount = allDocs.filter((d) => read[d.id]).length;
+  const allRead = readCount === allDocs.length;
   const pct = Math.round((readCount / allDocs.length) * 100);
 
   const DocRow = ({ d }) => (
@@ -92,7 +93,14 @@ export function Page5({ go, onBack, read, markRead }) {
       <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, margin: "4px 0 16px" }}>
         Track your progress to 100% document review.
       </p>
-      <Btn variant="amber" onClick={() => go("page6")}>Continue</Btn>
+      <Btn variant="amber" disabled={!allRead} onClick={() => go("page6")}>
+        Continue
+      </Btn>
+      {!allRead && (
+        <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
+          Open each document above to continue.
+        </p>
+      )}
     </Shell>
   );
 }

@@ -94,8 +94,11 @@ export function Page7({ go, onBack, app, setApp }) {
         </span>
       </Card>
 
-      <Btn variant="amber" onClick={saveAndContinue}
-        style={{ opacity: canSubmit ? 1 : 0.5 }}>
+      <Btn
+        variant="amber"
+        disabled={!canSubmit}
+        onClick={saveAndContinue}
+      >
         Continue
       </Btn>
       {!canSubmit && (

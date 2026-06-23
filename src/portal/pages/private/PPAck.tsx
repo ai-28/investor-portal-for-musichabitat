@@ -58,8 +58,7 @@ export function PPAck({ go, onBack, packs, setPacks }) {
         </Card>
       ))}
 
-      <Btn variant="teal" onClick={() => allChecked && go("pp_sign")}
-        style={{ opacity: allChecked ? 1 : 0.5 }}>
+      <Btn variant="teal" disabled={!allChecked} onClick={() => go("pp_sign")}>
         Continue to Signing
       </Btn>
       {!allChecked && (

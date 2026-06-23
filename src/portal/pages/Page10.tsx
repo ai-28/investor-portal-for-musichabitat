@@ -10,7 +10,6 @@ import { Card } from "@/portal/ui/Card";
 import { DocuSignMark } from "@/portal/ui/DocuSignMark";
 import { SigningFieldGuidePanel } from "@/portal/ui/SigningFieldGuide";
 import { DOCUSIGN } from "@/portal/data/doc-config";
-import { patchPortalState } from "@/lib/portal/sync-client";
 import type { Dispatch, SetStateAction } from "react";
 import type { InvestorApp, SignedMap } from "@/portal/types";
 
@@ -180,18 +179,10 @@ export function Page10({ go, onBack, signed, setSigned, app }: {
 
       <Btn
         variant="amber"
+        disabled={!allSigned}
         onClick={() => {
-          if (!allSigned) return;
-          void (async () => {
-            try {
-              await patchPortalState({ application_status: "signed" });
-            } catch (err) {
-              console.error("Failed to mark application signed", err);
-            }
-            await go("page11");
-          })();
+          void go("page11", { patch: { application_status: "signed" } });
         }}
-        style={{ opacity: allSigned ? 1 : 0.5 }}
       >
         Continue to Funding
       </Btn>

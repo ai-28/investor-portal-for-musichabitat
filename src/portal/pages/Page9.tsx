@@ -22,10 +22,7 @@ import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
 import { achLabel, achErr } from "@/portal/data/ach-labels";
 
-import { usePortal } from "@/portal/PortalProvider";
-
 export function Page9({ go, onBack, acks, setAcks }) {
-  const { markApplicationSubmitted } = usePortal();
   const ITEMS = [
     ["speculative", "I understand this is a speculative, illiquid investment and I could lose my entire investment."],
     ["noInterest", "I understand the SAFE bears no interest and has no maturity date."],
@@ -60,14 +57,12 @@ export function Page9({ go, onBack, acks, setAcks }) {
 
       <Btn
         variant="amber"
+        disabled={!allChecked}
         onClick={() => {
-          if (!allChecked) return;
-          void (async () => {
-            await markApplicationSubmitted();
-            await go("page10");
-          })();
+          void go("page10", {
+            patch: { application_status: "submitted", acks },
+          });
         }}
-        style={{ opacity: allChecked ? 1 : 0.5 }}
       >
         Continue to Signing
       </Btn>
