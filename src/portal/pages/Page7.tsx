@@ -24,6 +24,8 @@ import { achLabel, achErr } from "@/portal/data/ach-labels";
 import { appToPatch } from "@/lib/portal/state";
 import { patchPortalState } from "@/lib/portal/sync-client";
 
+import { skipProgressGates } from "@/portal/lib/demo";
+
 export function Page7({ go, onBack, app, setApp }) {
   const set = (k) => (v) => setApp((a) => ({ ...a, [k]: v }));
   const amt = Number(app.amount || 0);
@@ -31,7 +33,7 @@ export function Page7({ go, onBack, app, setApp }) {
   const canSubmit = app.fullName && app.email && validAmt && app.accredited;
 
   const saveAndContinue = async () => {
-    if (!canSubmit) return;
+    if (!skipProgressGates() && !canSubmit) return;
     try {
       await patchPortalState(appToPatch(app));
     } catch (err) {
@@ -96,12 +98,12 @@ export function Page7({ go, onBack, app, setApp }) {
 
       <Btn
         variant="amber"
-        disabled={!canSubmit}
+        disabled={!skipProgressGates() && !canSubmit}
         onClick={saveAndContinue}
       >
         Continue
       </Btn>
-      {!canSubmit && (
+      {!skipProgressGates() && !canSubmit && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
           Complete name, email, a valid amount, and the confirmation to continue.
         </p>

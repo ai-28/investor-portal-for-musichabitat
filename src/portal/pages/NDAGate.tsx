@@ -11,7 +11,7 @@ import { usePortal } from "@/portal/PortalProvider";
 import { useSigningFlow } from "@/portal/hooks/useSigningFlow";
 import { MUTUAL_NDA_PDF_URL } from "@/portal/data/doc-config";
 import { SigningFieldGuidePanel } from "@/portal/ui/SigningFieldGuide";
-import type { OfferingType } from "@/lib/portal/db-types";
+import { skipProgressGates } from "@/portal/lib/demo";
 
 const NDA_DOC_ID = "nda";
 const NDA_DOC_IDS = [NDA_DOC_ID];
@@ -27,8 +27,6 @@ export function NDAGate({
 }) {
   const { user, continueAfterNda, refreshState } = usePortal();
   const [ndaSigned, setNdaSigned] = useState<Record<string, boolean>>({});
-  const [ceoSignUrl, setCeoSignUrl] = useState("");
-  const [ceoLinkBusy, setCeoLinkBusy] = useState(false);
 
   const investorName =
     user?.email?.split("@")[0] || "Investor";
@@ -57,25 +55,10 @@ export function NDAGate({
   }, [investorSignedAwaitingCeo, awaitingInvestorSign, refreshStatus]);
 
   useEffect(() => {
-    if (!investorSignedAwaitingCeo) {
-      setCeoSignUrl("");
-      return;
-    }
-    setCeoLinkBusy(true);
-    fetch(
-      `/api/docusign/ceo-sign-url?track=${track}&docId=${encodeURIComponent(NDA_DOC_ID)}`,
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.url) setCeoSignUrl(data.url);
-      })
-      .catch(() => {})
-      .finally(() => setCeoLinkBusy(false));
-  }, [investorSignedAwaitingCeo, track]);
-
-  useEffect(() => {
     if (fullyExecuted) refreshState().catch(() => {});
   }, [fullyExecuted, refreshState]);
+
+  const canContinueNda = skipProgressGates() || fullyExecuted;
 
   return (
     <Shell onBack={onBack}>
@@ -107,7 +90,7 @@ export function NDAGate({
           <strong>Finish</strong>. Closing the window without Finish does not count as
           signed.
         </p>
-        {!fullyExecuted && (
+        {!fullyExecuted && !investorSignedAwaitingCeo && (
           <SigningFieldGuidePanel
             docId={NDA_DOC_ID}
             docName="Mutual NDA"
@@ -233,61 +216,20 @@ export function NDAGate({
       )}
 
       {investorSignedAwaitingCeo && (
-        <Card style={{ marginTop: 14, padding: "16px 14px" }}>
-          <div
+        <Card style={{ marginTop: 14, padding: "16px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: C.text }}>
+            Waiting for Music Habitat countersignature
+          </div>
+          <p
             style={{
               fontSize: 13,
-              fontWeight: 600,
-              marginBottom: 8,
-              color: C.text,
-            }}
-          >
-            CEO countersign
-          </div>
-          <p
-            style={{
-              fontSize: 12,
               color: C.textDim,
               lineHeight: 1.55,
-              margin: "0 0 12px",
+              margin: 0,
             }}
           >
-            This link does not expire. In DocuSign: last page → <strong>Add Fields</strong> →
-            place Signature / Date / Text on the <strong>Music Habitat</strong> column
-            (left), then <strong>Finish</strong>.
-          </p>
-          <SigningFieldGuidePanel docId={NDA_DOC_ID} docName="CEO — Music Habitat column" />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-            <Btn
-              variant={accent === C.teal ? "teal" : "amber"}
-              disabled={!ceoSignUrl || ceoLinkBusy}
-              onClick={() =>
-                ceoSignUrl &&
-                window.open(ceoSignUrl, "_blank", "noopener,noreferrer")
-              }
-            >
-              {ceoLinkBusy ? "Loading link…" : "Open CEO countersign"}
-            </Btn>
-            <Btn
-              variant="ghost"
-              disabled={!ceoSignUrl}
-              onClick={() => {
-                if (ceoSignUrl) navigator.clipboard.writeText(ceoSignUrl);
-              }}
-            >
-              Copy link for CEO
-            </Btn>
-          </div>
-          <p
-            style={{
-              fontSize: 11,
-              color: C.textFaint,
-              marginTop: 10,
-              lineHeight: 1.5,
-            }}
-          >
-            This page updates automatically after the CEO finishes. You can download
-            the current PDF above while waiting.
+            You&apos;ve signed the NDA. Brandon Beard (CEO) will countersign via DocuSign
+            email. This page updates automatically when the agreement is fully executed.
           </p>
         </Card>
       )}
@@ -300,13 +242,13 @@ export function NDAGate({
 
       <Btn
         variant={accent === C.teal ? "teal" : "amber"}
-        onClick={() => fullyExecuted && continueAfterNda(track)}
-        disabled={!fullyExecuted}
+        onClick={() => canContinueNda && continueAfterNda(track)}
+        disabled={!canContinueNda}
         style={{ marginTop: 16 }}
       >
         Continue
       </Btn>
-      {!fullyExecuted && (
+      {!canContinueNda && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
           Sign the NDA above. You can continue once both you and the CEO have fully executed
           the agreement.

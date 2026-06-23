@@ -17,3 +17,11 @@ export const C = {
 
 export const FONT_DISPLAY = '"Oswald", "Anton", system-ui, sans-serif'; // bold condensed
 export const FONT_BODY = '"Inter", system-ui, sans-serif';
+
+/** Shell max-width at common breakpoints (see globals.css --portal-content-max-width). */
+export const LAYOUT = {
+  mobile: 440,
+  tablet: 820,
+  desktop: 960,
+  wide: 1080,
+} as const;

@@ -1,6 +1,6 @@
 "use client";
 
-import { C, FONT_BODY, FONT_DISPLAY } from "@/portal/tokens";
+import { C, FONT_DISPLAY } from "@/portal/tokens";
 import { Logo } from "@/portal/ui/Logo";
 
 export function Shell({
@@ -8,24 +8,25 @@ export function Shell({
   step,
   total = 14,
   onBack,
+  layout = "default",
 }: {
   children: React.ReactNode;
   step?: number;
   total?: number;
   onBack?: () => void;
+  layout?: "default" | "wide";
 }) {
   return (
-    <div style={{
-      minHeight: "100vh", background: C.bg, color: C.text,
-      fontFamily: FONT_BODY, maxWidth: 440, margin: "0 auto",
-      position: "relative", overflowX: "hidden",
-    }}>
+    <div
+      className={
+        layout === "wide" ? "portal-shell portal-shell--wide" : "portal-shell"
+      }
+    >
       <TopBar step={step} total={total} onBack={onBack} />
-      <div style={{ padding: "0 20px 120px" }}>{children}</div>
+      <div className="portal-shell__content">{children}</div>
     </div>
   );
 }
-
 
 export function TopBar({
   step,
@@ -37,21 +38,38 @@ export function TopBar({
   onBack?: () => void;
 }) {
   return (
-    <div style={{
-      position: "sticky", top: 0, zIndex: 30, background: "rgba(0,0,0,0.92)",
-      backdropFilter: "blur(10px)", borderBottom: `1px solid ${C.line}`,
-      padding: "14px 20px", display: "flex", alignItems: "center", gap: 12,
-    }}>
+    <div className="portal-top-bar">
       {onBack ? (
-        <button onClick={onBack} style={{
-          background: "none", border: "none", color: C.textDim, fontSize: 22,
-          cursor: "pointer", lineHeight: 1, padding: 0, width: 24,
-        }}>‹</button>
-      ) : <div style={{ width: 24 }} />}
+        <button
+          onClick={onBack}
+          style={{
+            background: "none",
+            border: "none",
+            color: C.textDim,
+            fontSize: 22,
+            cursor: "pointer",
+            lineHeight: 1,
+            padding: 0,
+            width: 24,
+          }}
+        >
+          ‹
+        </button>
+      ) : (
+        <div style={{ width: 24 }} />
+      )}
       <Logo size={22} />
       {step ? (
-        <span style={{ marginLeft: "auto", fontSize: 11, letterSpacing: 1.5,
-          color: C.textFaint, fontFamily: FONT_DISPLAY, textTransform: "uppercase" }}>
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: 11,
+            letterSpacing: 1.5,
+            color: C.textFaint,
+            fontFamily: FONT_DISPLAY,
+            textTransform: "uppercase",
+          }}
+        >
           Step {step} / {total}
         </span>
       ) : null}

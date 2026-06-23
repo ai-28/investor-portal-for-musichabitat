@@ -22,7 +22,7 @@ import { CEO_VIDEO_URL, CEO_VIDEO_KIND, WELCOME_BG } from "@/portal/data/media";
 import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
 import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
-import { achLabel, achErr } from "@/portal/data/ach-labels";
+import { skipProgressGates } from "@/portal/lib/demo";
 import { applicationPatchForTrack, emptyApp } from "@/lib/portal/state";
 import { patchPortalState } from "@/lib/portal/sync-client";
 
@@ -41,7 +41,7 @@ export function PPApply({ go, onBack, papp, setPapp }) {
     basis.length > 0 && papp.verifyMethod;
 
   const saveAndContinue = async () => {
-    if (!canSubmit) return;
+    if (!skipProgressGates() && !canSubmit) return;
     try {
       await patchPortalState(applicationPatchForTrack("private", emptyApp, papp));
     } catch (err) {
@@ -158,10 +158,10 @@ export function PPApply({ go, onBack, papp, setPapp }) {
         evidence of accredited status for each 506(c) investor.
       </p>
 
-      <Btn variant="teal" disabled={!canSubmit} onClick={saveAndContinue}>
+      <Btn variant="teal" disabled={!skipProgressGates() && !canSubmit} onClick={saveAndContinue}>
         Continue
       </Btn>
-      {!canSubmit && (
+      {!skipProgressGates() && !canSubmit && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
           Complete name, email, a valid amount, an accreditation basis, and a verification method.
         </p>

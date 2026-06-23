@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import { getDocSource, PDF_RENDER_IDS } from "@/portal/data/doc-config";
 import { DOC_CENTER } from "@/portal/data/content";
 import { PRIVATE } from "@/portal/data/private-offering";
 import { resolveDocKey } from "@/portal/data/doc-aliases";
 import { pdfSourceKey } from "@/portal/lib/pdf";
 import type { OfferingType } from "@/lib/portal/db-types";
+import { usePortal } from "@/portal/PortalProvider";
 import { PrototypeView } from "@/portal/views/PrototypeView";
 import { PDFDocViewer } from "@/portal/views/PDFDocViewer";
 import { InPortalDocReader } from "@/portal/views/InPortalDocReader";
@@ -29,6 +31,12 @@ export function DocViewer({
   onBack: () => void;
   track?: OfferingType;
 }) {
+  const { markRead } = usePortal();
+
+  useEffect(() => {
+    markRead(docId);
+  }, [docId, markRead]);
+
   const key = resolveDocKey(docId);
   if (key === "prototype") return <PrototypeView onBack={onBack} />;
 

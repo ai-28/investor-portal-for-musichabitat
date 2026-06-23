@@ -9,7 +9,7 @@ import { Card } from "@/portal/ui/Card";
 import { DocuSignMark } from "@/portal/ui/DocuSignMark";
 import { SigningFieldGuidePanel } from "@/portal/ui/SigningFieldGuide";
 import { PRIVATE } from "@/portal/data/private-offering";
-import { PPStep } from "@/portal/ui/PPStep";
+import { skipProgressGates } from "@/portal/lib/demo";
 
 export function PPSign({ go, onBack, psigned, setPsigned, papp }) {
   const docs = PRIVATE.signDocs;
@@ -21,6 +21,11 @@ export function PPSign({ go, onBack, psigned, setPsigned, papp }) {
   });
   const signedCount = docs.filter((d) => psigned[d.id]).length;
   const allSigned = signedCount === docs.length;
+  const awaitingCeo = docs.filter((d) => statuses[d.id] === "investor_signed");
+  const needsInvestorSign = (docId: string) => {
+    const status = statuses[docId];
+    return status === "sent" || status === undefined;
+  };
 
   return (
     <Shell onBack={onBack}>
@@ -89,21 +94,36 @@ export function PPSign({ go, onBack, psigned, setPsigned, papp }) {
       )}
 
       {enabled &&
-        docs.map((d) => (
-          <SigningFieldGuidePanel
-            key={d.id}
-            docId={d.id}
-            docName={d.name}
-            investorName={papp.fullName}
-            investorEmail={papp.email}
-            investorAmount={papp.amount}
-          />
-        ))}
+        docs
+          .filter((d) => needsInvestorSign(d.id))
+          .map((d) => (
+            <SigningFieldGuidePanel
+              key={d.id}
+              docId={d.id}
+              docName={d.name}
+              investorName={papp.fullName}
+              investorEmail={papp.email}
+              investorAmount={papp.amount}
+            />
+          ))}
 
-      <Btn variant="teal" disabled={!allSigned} onClick={() => go("pp_fund")}>
+      {enabled && awaitingCeo.length > 0 && (
+        <Card style={{ marginTop: 14, padding: "16px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>
+            Waiting for Music Habitat countersignature
+          </div>
+          <p style={{ fontSize: 13, color: C.textDim, lineHeight: 1.55, margin: 0 }}>
+            You&apos;ve signed {awaitingCeo.length} document
+            {awaitingCeo.length > 1 ? "s" : ""}. The CEO will countersign via DocuSign
+            email. This page updates automatically when each agreement is fully executed.
+          </p>
+        </Card>
+      )}
+
+      <Btn variant="teal" disabled={!skipProgressGates() && !allSigned} onClick={() => go("pp_fund")}>
         Continue to Funding
       </Btn>
-      {!allSigned && (
+      {!skipProgressGates() && !allSigned && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
           All documents must be fully executed before funding.
         </p>

@@ -15,6 +15,17 @@ export const emptyApp: InvestorApp = {
   accredited: false,
 };
 
+export function mergeBooleanFlags(
+  server: ReadMap,
+  local: ReadMap,
+): ReadMap {
+  const merged = { ...server };
+  for (const [key, value] of Object.entries(local)) {
+    if (value) merged[key] = true;
+  }
+  return merged;
+}
+
 export function defaultRouteForOffering(offeringType: OfferingType | null): string {
   if (offeringType === "private") return "pp_welcome_ceo";
   return "page2";

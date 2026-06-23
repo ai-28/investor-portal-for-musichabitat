@@ -20,8 +20,7 @@ import { CEO_VIDEO_URL, CEO_VIDEO_KIND, WELCOME_BG } from "@/portal/data/media";
 import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
 import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
-import { achLabel, achErr } from "@/portal/data/ach-labels";
-
+import { skipProgressGates } from "@/portal/lib/demo";
 import { usePortal } from "@/portal/PortalProvider";
 
 export function Page2({ go, onBack }) {
@@ -72,7 +71,7 @@ export function Page2({ go, onBack }) {
         </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="portal-referrer-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {REFERRERS.map((m) => {
           const sel = picked === m.id;
           return (
@@ -116,6 +115,11 @@ export function Page2({ go, onBack }) {
             <Btn variant="ghost" onClick={rejectReferrer}>No</Btn>
           </div>
         </Card>
+      )}
+      {skipProgressGates() && (
+        <Btn variant="amber" onClick={() => void go("page3")} style={{ marginTop: 16 }}>
+          Continue
+        </Btn>
       )}
     </Shell>
   );

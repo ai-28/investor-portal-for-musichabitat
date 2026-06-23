@@ -31,7 +31,7 @@ export function InPortalDocReader({
 
   if (!V && !D) {
     return (
-      <Shell onBack={onBack}>
+      <Shell layout="wide" onBack={onBack}>
         <div style={{ paddingTop: 60, textAlign: "center" }}>
           <div style={{ fontSize: 34 }}>📄</div>
           <H size={22}>Document</H>
@@ -47,7 +47,7 @@ export function InPortalDocReader({
   // ---- VERBATIM render (full article text) ----------------------------------
   if (V) {
     return (
-      <Shell onBack={onBack}>
+      <Shell layout="wide" onBack={onBack}>
         <div style={{ paddingTop: 16 }}>
           <Kicker>{V.kicker}</Kicker>
           <H size={25}>{V.title}</H>
@@ -95,7 +95,7 @@ export function InPortalDocReader({
 
   // ---- READER_CONTENT render (structured summary) ---------------------------
   return (
-    <Shell onBack={onBack}>
+    <Shell layout="wide" onBack={onBack}>
       <div style={{ paddingTop: 16 }}>
         <Kicker>{D.kicker}</Kicker>
         <H size={26}>{D.title}</H>

@@ -26,7 +26,7 @@ export function ExecSummaryView({ onBack }) {
   );
   const maxRev = 35;
   return (
-    <Shell onBack={onBack}>
+    <Shell layout="wide" onBack={onBack}>
       <div style={{ paddingTop: 16 }}>
         <div style={{ paddingBottom: 18, marginBottom: 4, borderBottom: `1px solid ${C.line}` }}>
           <Logo size={30} center />

@@ -78,7 +78,7 @@ export function PDFDocViewer({
   const downloadName = pdfDownloadName(sourceKey, src, track);
 
   return (
-    <Shell onBack={onBack}>
+    <Shell layout="wide" onBack={onBack}>
       <div style={{ paddingTop: 16 }}>
         <Kicker>Official Document</Kicker>
         <H size={24}>{title}</H>
@@ -89,36 +89,43 @@ export function PDFDocViewer({
 
       {src ? (
         <>
-          {/* Real PDF render. <iframe> is the most broadly-compatible mobile
-              path (iOS Safari + Chrome both page through native PDFs). */}
-          <div style={{
-            width: "100%", height: "70vh", minHeight: 420,
-            border: `1px solid ${C.line}`, borderRadius: 12, overflow: "hidden",
-            background: "#1a1a1a",
-          }}>
-            <iframe
-              src={src + "#view=FitH"}
-              title={title}
-              style={{ width: "100%", height: "100%", border: "none" }}
-            />
+          <div className="portal-pdf-frame portal-pdf-frame--bleed">
+            <iframe src={src + "#view=FitH"} title={title} />
           </div>
-          <Btn variant="amber" onClick={() => downloadPdf(src, downloadName)}>
-            Download PDF
-          </Btn>
-          <Btn variant="ghost" onClick={() => window.open(src, "_blank")}>
-            Open in New Tab
-          </Btn>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+            <Btn variant="amber" onClick={() => downloadPdf(src, downloadName)}>
+              Download PDF
+            </Btn>
+            <Btn variant="ghost" onClick={() => window.open(src, "_blank")}>
+              Open in New Tab
+            </Btn>
+          </div>
         </>
       ) : (
-        // No source wired yet — clean placeholder, not a broken frame.
         <Card style={{ textAlign: "center", padding: "40px 20px" }}>
-          <div style={{
-            aspectRatio: "8.5/11", maxWidth: 220, margin: "0 auto 20px",
-            background: C.cardHi, border: `1px dashed ${C.lineHi}`, borderRadius: 8,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <span style={{ color: C.textFaint, fontSize: 12, letterSpacing: 1,
-              textTransform: "uppercase", fontFamily: FONT_DISPLAY }}>PDF</span>
+          <div
+            className="portal-pdf-placeholder"
+            style={{
+              margin: "0 auto 20px",
+              background: C.cardHi,
+              border: `1px dashed ${C.lineHi}`,
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <span
+              style={{
+                color: C.textFaint,
+                fontSize: 12,
+                letterSpacing: 1,
+                textTransform: "uppercase",
+                fontFamily: FONT_DISPLAY,
+              }}
+            >
+              PDF
+            </span>
           </div>
           <p style={{ color: C.textDim, fontSize: 14, lineHeight: 1.5, margin: "0 0 4px" }}>
             {title} renders here once the file is published.

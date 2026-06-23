@@ -3,13 +3,17 @@
 export interface SigningFieldGuide {
   /** Last page of the PDF where the execution / signature block lives. */
   signaturePageHint: string;
+  /** Investor-facing hint (no CEO column). */
+  investorPageHint?: string;
   investorFields: string[];
   ceoFields: string[];
 }
 
 export const SIGNING_FIELD_GUIDES: Record<string, SigningFieldGuide> = {
   nda: {
-    signaturePageHint: "last page — Music Habitat column on the left (CEO) / Counterparty on the right (you)",
+    investorPageHint: "last page — Counterparty column on the right (you)",
+    signaturePageHint:
+      "last page — Music Habitat column on the left (CEO) / Counterparty on the right (you)",
     investorFields: [
       "NAME (text)",
       "SIGNATURE",

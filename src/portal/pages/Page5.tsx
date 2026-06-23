@@ -22,11 +22,16 @@ import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
 import { achLabel, achErr } from "@/portal/data/ach-labels";
 
+import { skipProgressGates } from "@/portal/lib/demo";
+
 export function Page5({ go, onBack, read, markRead }) {
-  const allDocs = [...DOC_CENTER.company, ...DOC_CENTER.investor];
-  const readCount = allDocs.filter((d) => read[d.id]).length;
-  const allRead = readCount === allDocs.length;
-  const pct = Math.round((readCount / allDocs.length) * 100);
+  const investorDocs = DOC_CENTER.investor;
+  const readCount = investorDocs.filter((d) => read[d.id]).length;
+  const allInvestorRead = readCount === investorDocs.length;
+  const pct =
+    investorDocs.length > 0
+      ? Math.round((readCount / investorDocs.length) * 100)
+      : 0;
 
   const DocRow = ({ d }) => (
     <div onClick={() => { markRead(d.id); go(`doc_view:${d.id}`); }} style={{
@@ -78,27 +83,35 @@ export function Page5({ go, onBack, read, markRead }) {
         </div>
       </Card>
 
-      <div style={{ marginTop: 8 }}>
-        <Kicker color={C.teal}>Company Information</Kicker>
-        <Card style={{ padding: "2px 18px" }}>
-          {DOC_CENTER.company.map((d) => <DocRow key={d.id} d={d} />)}
-        </Card>
+      <div className="portal-two-col-wide" style={{ marginTop: 8 }}>
+        <div>
+          <Kicker color={C.teal}>Company Information (optional)</Kicker>
+          <Card style={{ padding: "2px 18px" }}>
+            {DOC_CENTER.company.map((d) => <DocRow key={d.id} d={d} />)}
+          </Card>
+        </div>
 
-        <Kicker color={C.teal}>Investor Documents</Kicker>
-        <Card style={{ padding: "2px 18px" }}>
-          {DOC_CENTER.investor.map((d) => <DocRow key={d.id} d={d} />)}
-        </Card>
+        <div>
+          <Kicker color={C.teal}>Investor Documents</Kicker>
+          <Card style={{ padding: "2px 18px" }}>
+            {DOC_CENTER.investor.map((d) => <DocRow key={d.id} d={d} />)}
+          </Card>
+        </div>
       </div>
 
       <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, margin: "4px 0 16px" }}>
-        Track your progress to 100% document review.
+        Progress tracks investor documents only (company materials are optional).
       </p>
-      <Btn variant="amber" disabled={!allRead} onClick={() => go("page6")}>
+      <Btn
+        variant="amber"
+        disabled={!skipProgressGates() && !allInvestorRead}
+        onClick={() => go("page6")}
+      >
         Continue
       </Btn>
-      {!allRead && (
+      {!skipProgressGates() && !allInvestorRead && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
-          Open each document above to continue.
+          Open each investor document below to continue.
         </p>
       )}
     </Shell>

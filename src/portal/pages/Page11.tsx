@@ -7,9 +7,12 @@ import { H, Kicker } from "@/portal/ui/Typography";
 import { Btn } from "@/portal/ui/Button";
 import { FundingPanel } from "@/portal/ui/FundingPanel";
 
+import { skipProgressGates } from "@/portal/lib/demo";
+
 export function Page11({ go, onBack, app }) {
   const amt = Number(app.amount || 1000);
   const [canContinue, setCanContinue] = useState(false);
+  const fundingOk = skipProgressGates() || canContinue;
 
   return (
     <Shell step={11} onBack={onBack}>
@@ -32,7 +35,7 @@ export function Page11({ go, onBack, app }) {
 
       <Btn
         variant="amber"
-        disabled={!canContinue}
+        disabled={!fundingOk}
         onClick={() => go("page12")}
         style={{ marginTop: 14 }}
       >
@@ -40,7 +43,7 @@ export function Page11({ go, onBack, app }) {
       </Btn>
       <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
         Your position is confirmed once funds clear and the Company accepts your subscription.
-        {canContinue
+        {fundingOk
           ? ""
           : " Complete ACH authorization or mark your check as mailed above to continue."}
       </p>

@@ -45,7 +45,7 @@ export function Page1({ go, openExecSummary }) {
         </p>
       </div>
 
-      <div style={{ marginTop: 24 }}>
+      <div className="portal-home-tiles" style={{ marginTop: 24 }}>
         {tiles.map((t) => (
           <Card key={t.key} accent={t.accent} onClick={t.action} style={{ padding: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 18 }}>

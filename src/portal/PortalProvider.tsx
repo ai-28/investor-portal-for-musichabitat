@@ -31,6 +31,7 @@ import {
   isFfProgressRoute,
   isPrivateProgressRoute,
   isRouteAtOrAheadOfProgress,
+  mergeBooleanFlags,
   profileToPortalState,
   resumeRouteFromProfile,
   routeToStep,
@@ -99,7 +100,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
 
       setApp(state.app);
       setPapp(state.papp);
-      setRead(state.read);
+      setRead((prev) => mergeBooleanFlags(state.read, prev));
       setAcks(state.acks);
       setSigned(state.signed);
       setPacks(state.packs);
@@ -336,9 +337,16 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     [router, user, applyPortalState],
   );
 
-  const markRead = useCallback((id: string) => {
-    setRead((r) => ({ ...r, [id]: true }));
-  }, []);
+  const markRead = useCallback(
+    (id: string) => {
+      setRead((r) => ({ ...r, [id]: true }));
+      if (!user) return;
+      patchPortalState({ read: { [id]: true } }).catch((err) => {
+        console.error("Failed to mark document read", err);
+      });
+    },
+    [user],
+  );
 
   const signOut = useCallback(async () => {
     await nextAuthSignOut({ redirect: false });
