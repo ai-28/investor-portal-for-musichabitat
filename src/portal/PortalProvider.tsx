@@ -401,6 +401,48 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     }
   }, [user, applyPortalState]);
 
+  const finishFounderCallStep = useCallback(
+    async (track: OfferingType) => {
+      const completionRoute = track === "private" ? "pp_welcome" : "page12";
+      const completionStep = track === "private" ? 11 : 13;
+
+      setCurrentRoute(completionRoute);
+      setCurrentStep(completionStep);
+      setOfferingType(track);
+
+      if (track === "private") {
+        setPrivateCurrentRoute(completionRoute);
+        setPrivateCurrentStep(completionStep);
+      } else {
+        setFfCurrentRoute(completionRoute);
+        setFfCurrentStep(completionStep);
+      }
+
+      if (user && !skipSyncRef.current) {
+        try {
+          await patchPortalState({
+            offering_type: track,
+            ...(track === "private"
+              ? {
+                  private_current_route: completionRoute,
+                  private_current_step: completionStep,
+                }
+              : {
+                  ff_current_route: completionRoute,
+                  ff_current_step: completionStep,
+                }),
+          });
+        } catch (err) {
+          console.error("Failed to save founder call step", err);
+        }
+      }
+
+      router.replace(routeToPath(completionRoute));
+      if (typeof window !== "undefined") window.scrollTo(0, 0);
+    },
+    [router, user],
+  );
+
   const recordPaymentStatus = useCallback(
     async (
       status: "pending" | "authorized" | "cleared" | "failed",
@@ -461,6 +503,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       acceptNda,
       markApplicationSubmitted,
       recordPaymentStatus,
+      finishFounderCallStep,
+      ffCurrentStep,
+      privateCurrentStep,
     }),
     [
       route,
@@ -488,6 +533,9 @@ export function PortalProvider({ children }: { children: ReactNode }) {
       acceptNda,
       markApplicationSubmitted,
       recordPaymentStatus,
+      finishFounderCallStep,
+      ffCurrentStep,
+      privateCurrentStep,
     ],
   );
 

@@ -65,6 +65,8 @@ export interface PortalContextValue {
   authLoading: boolean;
   hydrated: boolean;
   currentStep: number;
+  ffCurrentStep: number;
+  privateCurrentStep: number;
   offeringType: OfferingType | null;
   paymentStatus: PaymentStatus | null;
   privatePaymentStatus: PaymentStatus | null;
@@ -78,6 +80,8 @@ export interface PortalContextValue {
     track?: OfferingType,
   ) => Promise<void>;
   acceptNda: (track: OfferingType, signerName?: string) => Promise<void>;
+  /** Skip founder call scheduling — return to completion screen, not portal home. */
+  finishFounderCallStep: (track: OfferingType) => Promise<void>;
 }
 
 export interface NDAGateProps extends BackProps {

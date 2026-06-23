@@ -13,18 +13,13 @@ import { Avatar } from "@/portal/ui/Avatar";
 import { StepNav } from "@/portal/ui/StepNav";
 import { DocuSignMark } from "@/portal/ui/DocuSignMark";
 import { GuardianBadge } from "@/portal/ui/GuardianBadge";
-import { BrandonSignature } from "@/portal/ui/BrandonSignature";
-import { EXEC_SUMMARY, QA_PRIVATE } from "@/portal/data/content";
+import { usePortal } from "@/portal/PortalProvider";
 import { PRIVATE } from "@/portal/data/private-offering";
-import { PPStep, PP_TOTAL } from "@/portal/ui/PPStep";
-import { PHOTO_MAP, BRANDON_PHOTO } from "@/portal/data/photos";
-import { CEO_VIDEO_URL, CEO_VIDEO_KIND, WELCOME_BG } from "@/portal/data/media";
-import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
-import { STOCK_CERT_IMG } from "@/portal/data/photos";
-import { achInput } from "@/portal/lib/ach";
-import { achLabel, achErr } from "@/portal/data/ach-labels";
+import { PPStep } from "@/portal/ui/PPStep";
+import { CALENDLY_URL } from "@/portal/data/doc-config";
 
 export function PPCall({ go, onBack, papp }) {
+  const { finishFounderCallStep } = usePortal();
   const openCalendly = () => {
     if (CALENDLY_URL) {
       window.open(CALENDLY_URL, "_blank", "noopener,noreferrer");
@@ -56,7 +51,9 @@ export function PPCall({ go, onBack, papp }) {
         <Btn variant="teal" onClick={openCalendly}>Schedule With Brandon</Btn>
       </Card>
 
-      <Btn variant="ghost" onClick={() => go("page1")}>Skip for Now</Btn>
+      <Btn variant="ghost" onClick={() => finishFounderCallStep("private")}>
+        Skip for Now
+      </Btn>
     </Shell>
   );
 }

@@ -13,16 +13,13 @@ import { Avatar } from "@/portal/ui/Avatar";
 import { StepNav } from "@/portal/ui/StepNav";
 import { DocuSignMark } from "@/portal/ui/DocuSignMark";
 import { GuardianBadge } from "@/portal/ui/GuardianBadge";
-import { BrandonSignature } from "@/portal/ui/BrandonSignature";
-import { EXEC_SUMMARY, REFERRERS, DOC_CENTER, QA } from "@/portal/data/content";
-import { PHOTO_MAP, BRANDON_PHOTO } from "@/portal/data/photos";
-import { CEO_VIDEO_URL, CEO_VIDEO_KIND, WELCOME_BG } from "@/portal/data/media";
-import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
+import { usePortal } from "@/portal/PortalProvider";
 import { STOCK_CERT_IMG } from "@/portal/data/photos";
-import { achInput } from "@/portal/lib/ach";
-import { achLabel, achErr } from "@/portal/data/ach-labels";
 
 export function Page12({ go, onBack, app }) {
+  const { ffCurrentStep } = usePortal();
+  const schedulingDone = ffCurrentStep >= 13;
+
   return (
     <Shell step={12} onBack={onBack}>
       <div style={{ paddingTop: 30, textAlign: "center" }}>
@@ -71,7 +68,23 @@ export function Page12({ go, onBack, app }) {
         ))}
       </Card>
 
-      <Btn variant="amber" onClick={() => go("page13")}>Next</Btn>
+      {!schedulingDone ? (
+        <Btn variant="amber" onClick={() => go("page13")}>Schedule With Brandon</Btn>
+      ) : (
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: 12.5,
+            color: C.textDim,
+            lineHeight: 1.5,
+            marginTop: 20,
+          }}
+        >
+          You&apos;re all set. Brandon&apos;s calendar is always open if you want to book a call
+          later — email{" "}
+          <span style={{ color: C.amber }}>brandon@musichabitat.com</span>.
+        </p>
+      )}
       <Btn variant="ghost" onClick={() => go("page1")}>Back to Portal Home</Btn>
     </Shell>
   );

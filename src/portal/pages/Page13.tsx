@@ -13,16 +13,11 @@ import { Avatar } from "@/portal/ui/Avatar";
 import { StepNav } from "@/portal/ui/StepNav";
 import { DocuSignMark } from "@/portal/ui/DocuSignMark";
 import { GuardianBadge } from "@/portal/ui/GuardianBadge";
-import { BrandonSignature } from "@/portal/ui/BrandonSignature";
-import { EXEC_SUMMARY, REFERRERS, DOC_CENTER, QA } from "@/portal/data/content";
-import { PHOTO_MAP, BRANDON_PHOTO } from "@/portal/data/photos";
-import { CEO_VIDEO_URL, CEO_VIDEO_KIND, WELCOME_BG } from "@/portal/data/media";
-import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
-import { STOCK_CERT_IMG } from "@/portal/data/photos";
-import { achInput } from "@/portal/lib/ach";
-import { achLabel, achErr } from "@/portal/data/ach-labels";
+import { usePortal } from "@/portal/PortalProvider";
+import { CALENDLY_URL } from "@/portal/data/doc-config";
 
 export function Page13({ go, onBack, app }) {
+  const { finishFounderCallStep } = usePortal();
   const openCalendly = () => {
     if (CALENDLY_URL) {
       window.open(CALENDLY_URL, "_blank", "noopener,noreferrer");
@@ -53,7 +48,12 @@ export function Page13({ go, onBack, app }) {
         <Btn variant="amber" onClick={openCalendly}>Schedule With Brandon</Btn>
       </Card>
 
-      <Btn variant="ghost" onClick={() => go("page1")}>Skip for Now</Btn>
+      <Btn
+        variant="ghost"
+        onClick={() => finishFounderCallStep("friends_family")}
+      >
+        Skip for Now
+      </Btn>
     </Shell>
   );
 }

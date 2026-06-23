@@ -34,13 +34,17 @@ export function PPFund({ go, onBack, papp }) {
 
       <Btn
         variant="teal"
+        disabled={!canContinue}
         onClick={() => go("pp_welcome")}
-        style={{ marginTop: 14, opacity: canContinue ? 1 : 0.85 }}
+        style={{ marginTop: 14 }}
       >
         I've Initiated Funding
       </Btn>
       <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
         Your position is confirmed once funds clear and the Company accepts your subscription.
+        {canContinue
+          ? ""
+          : " Complete ACH authorization or mark your check as mailed above to continue."}
       </p>
     </Shell>
   );

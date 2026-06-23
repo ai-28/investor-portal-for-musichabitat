@@ -30,12 +30,19 @@ export function Page11({ go, onBack, app }) {
         onReadyToContinue={() => setCanContinue(true)}
       />
 
-      <Btn variant="amber" onClick={() => go("page12")} style={{ marginTop: 14 }}>
+      <Btn
+        variant="amber"
+        disabled={!canContinue}
+        onClick={() => go("page12")}
+        style={{ marginTop: 14 }}
+      >
         I've Initiated Funding
       </Btn>
       <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
         Your position is confirmed once funds clear and the Company accepts your subscription.
-        {canContinue ? "" : " Select a funding method above to get started."}
+        {canContinue
+          ? ""
+          : " Complete ACH authorization or mark your check as mailed above to continue."}
       </p>
     </Shell>
   );
