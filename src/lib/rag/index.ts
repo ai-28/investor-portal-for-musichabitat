@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
-import type { IndexedChunk, RagIndex } from "./types";
+import type { AssistantTrack, IndexedChunk, RagIndex } from "./types";
+import { resolveChunkTrack } from "./tracks";
 
 let cached: RagIndex | null = null;
 
@@ -30,6 +31,10 @@ export function loadRagIndex(): RagIndex {
 
 export function getAllChunks(): IndexedChunk[] {
   return loadRagIndex().chunks;
+}
+
+export function getChunksForTrack(track: AssistantTrack): IndexedChunk[] {
+  return getAllChunks().filter((chunk) => resolveChunkTrack(chunk.metadata) === track);
 }
 
 export function clearRagIndexCache(): void {

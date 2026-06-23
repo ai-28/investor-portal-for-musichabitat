@@ -12,11 +12,19 @@ import { Avatar } from "@/portal/ui/Avatar";
 import { READER_CONTENT } from "@/portal/data/reader-content";
 import { READER_PENDING } from "@/portal/data/reader-pending";
 import { VERBATIM } from "@/portal/data/verbatim";
-import { DOC_SOURCES } from "@/portal/data/doc-config";
 import { resolveDocKey } from "@/portal/data/doc-aliases";
 import { downloadReaderDoc } from "@/portal/lib/pdf";
+import type { OfferingType } from "@/lib/portal/db-types";
 
-export function InPortalDocReader({ docId, onBack }) {
+export function InPortalDocReader({
+  docId,
+  onBack,
+  track = "friends_family",
+}: {
+  docId: string;
+  onBack: () => void;
+  track?: OfferingType;
+}) {
   const key = resolveDocKey(docId);
   const V = VERBATIM[key];
   const D = READER_CONTENT[key];
@@ -78,7 +86,7 @@ export function InPortalDocReader({ docId, onBack }) {
         <p style={{ color: C.textFaint, fontSize: 10, lineHeight: 1.5, marginTop: 22,
           paddingTop: 14, borderTop: `1px solid ${C.line}` }}>{V.note}</p>
         <div style={{ marginTop: 14 }}>
-          <Btn variant="amber" onClick={() => downloadReaderDoc(docId)}>Download PDF</Btn>
+          <Btn variant="amber" onClick={() => downloadReaderDoc(docId, track)}>Download PDF</Btn>
           <Btn variant="ghost" onClick={onBack}>Back to Documents</Btn>
         </div>
       </Shell>
@@ -184,7 +192,7 @@ export function InPortalDocReader({ docId, onBack }) {
       <div style={{ marginTop: 14 }}>
         {/* Company-info readers are view-only; investor docs + plans offer download. */}
         {["deck", "services", "team"].includes(key) ? null : (
-          <Btn variant="amber" onClick={() => downloadReaderDoc(docId)}>Download PDF</Btn>
+          <Btn variant="amber" onClick={() => downloadReaderDoc(docId, track)}>Download PDF</Btn>
         )}
         <Btn variant="ghost" onClick={onBack}>Back to Documents</Btn>
       </div>

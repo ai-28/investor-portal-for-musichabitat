@@ -9,9 +9,9 @@ import {
 import { createHash } from "crypto";
 import { join, extname, relative } from "path";
 import OpenAI from "openai";
-import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { chunkText, makeChunkId } from "./chunk.mjs";
+import { RAG_TRACK_FOLDERS, trackForSourceFile, sourceUrl } from "./tracks.mjs";
 
 const ROOT = process.cwd();
 const DOCS_DIR = join(ROOT, "public", "assets", "docs");
@@ -43,27 +43,30 @@ function fileHash(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-function sourceUrl(filename) {
-  return `/assets/docs/${encodeURIComponent(filename)}`;
-}
-
-/** @returns {string[]} */
-function listDocFiles(dir) {
+/** List PDFs under each offering folder only (F & F, Private Offering). */
+function listTrackPdfFiles() {
   const out = [];
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry);
-    const st = statSync(full);
-    if (st.isDirectory()) {
-      out.push(...listDocFiles(full));
+  for (const folder of Object.values(RAG_TRACK_FOLDERS)) {
+    const dir = join(DOCS_DIR, folder);
+    if (!existsSync(dir)) {
+      console.warn(`  WARN folder missing: ${folder}`);
       continue;
     }
-    const ext = extname(entry).toLowerCase();
-    if (ext === ".pdf" || ext === ".docx") out.push(full);
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (!statSync(full).isFile()) continue;
+      if (extname(entry).toLowerCase() !== ".pdf") continue;
+      out.push(full);
+    }
   }
   return out.sort();
 }
 
-/** @returns {Promise<{ text: string; page: number | null }[]>} */
+/**
+ * Extract embedded text from a text-based PDF (pdf-parse).
+ * Image-only / scanned PDFs return no text — OCR is not run here.
+ * @returns {Promise<{ text: string; page: number | null }[]>}
+ */
 async function extractPdf(path) {
   const buffer = readFileSync(path);
   const parser = new PDFParse({ data: buffer });
@@ -75,14 +78,6 @@ async function extractPdf(path) {
   } finally {
     await parser.destroy();
   }
-}
-
-/** @returns {Promise<{ text: string; page: number | null }[]>} */
-async function extractDocx(path) {
-  const result = await mammoth.extractRawText({ path });
-  const text = (result.value || "").trim();
-  if (!text) return [];
-  return [{ text, page: null }];
 }
 
 /** @param {OpenAI} client @param {string[]} texts */
@@ -100,7 +95,6 @@ async function syncToChroma(records) {
   if (!chromaUrl) return;
 
   try {
-    // Optional peer: npm install chromadb@^3 (not required for JSON-based RAG)
     const { ChromaClient } = await import("chromadb");
     const chroma = new ChromaClient({ path: chromaUrl });
     const name = "musichabitat_docs";
@@ -148,26 +142,33 @@ async function main() {
   const allRecords = [];
   const manifest = {
     embeddingModel: EMBEDDING_MODEL,
+    tracks: { ff: { chunks: 0, files: 0 }, private: { chunks: 0, files: 0 } },
     files: {},
     totalChunks: 0,
     ingestedAt: new Date().toISOString(),
   };
 
-  const files = listDocFiles(DOCS_DIR);
-  console.log(`Found ${files.length} document(s) in public/assets/docs`);
+  const files = listTrackPdfFiles();
+  console.log(
+    `Found ${files.length} PDF(s) in ${Object.values(RAG_TRACK_FOLDERS).join(" + ")}`,
+  );
 
   for (const filePath of files) {
     const sourceFile = relative(DOCS_DIR, filePath).replace(/\\/g, "/");
-    const ext = extname(sourceFile).toLowerCase();
+    const track = trackForSourceFile(sourceFile);
+    if (!track) {
+      console.warn(`  SKIP ${sourceFile}: not in a known offering folder`);
+      continue;
+    }
+
     const hash = fileHash(filePath);
 
     let segments;
     try {
-      segments =
-        ext === ".pdf" ? await extractPdf(filePath) : ext === ".docx" ? await extractDocx(filePath) : [];
+      segments = await extractPdf(filePath);
     } catch (err) {
       console.warn(`  SKIP ${sourceFile}: extraction failed —`, err.message);
-      manifest.files[sourceFile] = { hash, chunks: 0, error: String(err.message) };
+      manifest.files[sourceFile] = { track, hash, chunks: 0, error: String(err.message) };
       continue;
     }
 
@@ -183,30 +184,39 @@ async function main() {
             sourceUrl: sourceUrl(sourceFile),
             page: segment.page ?? -1,
             chunkIndex,
+            track,
           },
         });
       });
     }
 
     manifest.files[sourceFile] = {
+      track,
       hash,
       chunks: fileRecords.length,
       chars: segments.reduce((n, s) => n + s.text.length, 0),
     };
+    manifest.tracks[track].files += 1;
+    manifest.tracks[track].chunks += fileRecords.length;
     allRecords.push(...fileRecords);
 
     if (fileRecords.length === 0) {
-      console.warn(`  WARN ${sourceFile}: no text extracted (scanned PDF?)`);
+      console.warn(
+        `  WARN ${sourceFile}: no text extracted (scanned/image PDF — needs OCR outside ingest)`,
+      );
     } else {
-      console.log(`  OK   ${sourceFile}: ${fileRecords.length} chunk(s)`);
+      console.log(`  OK   [${track}] ${sourceFile}: ${fileRecords.length} chunk(s)`);
     }
   }
 
   if (allRecords.length === 0) {
-    console.error("No chunks produced — check PDF/DOCX extraction.");
+    console.error("No chunks produced — check PDF text extraction.");
     process.exit(1);
   }
 
+  console.log(
+    `Track totals: F&F=${manifest.tracks.ff.chunks} chunks, Private=${manifest.tracks.private.chunks} chunks`,
+  );
   console.log(`Embedding ${allRecords.length} chunk(s) with ${EMBEDDING_MODEL}…`);
 
   for (let i = 0; i < allRecords.length; i += BATCH_SIZE) {

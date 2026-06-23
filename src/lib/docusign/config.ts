@@ -91,20 +91,20 @@ export function getDocuSignConsentUrl(): string {
   );
 }
 
-/** PDF filenames under public/assets/docs for each signing doc id. */
+/** PDF paths under public/assets/docs for each signing doc id. */
 export const SIGNING_PDF_FILES: Record<
   OfferingType,
   Record<string, string>
 > = {
   friends_family: {
-    safe: "MusicHabitat SAFE Private506c.pdf",
-    warrant: "MusicHabitat Warrant Private506c.pdf",
-    subscription: "MusicHabitat Subscription Private506c.pdf",
+    safe: "F & F/🟢 SAFE Agreement UPDATED.pdf",
+    warrant: "F & F/🟢 Warrant Agreement UPDATED.pdf",
+    subscription: "F & F/MusicHabitat Subscription.pdf",
   },
   private: {
-    safe: "MusicHabitat SAFE Private506c.pdf",
-    warrant: "MusicHabitat Warrant Private506c.pdf",
-    subscription: "MusicHabitat Subscription Private506c.pdf",
+    safe: "Private Offering/MusicHabitat SAFE Private506c.pdf",
+    warrant: "Private Offering/MusicHabitat Warrant Private506c.pdf",
+    subscription: "Private Offering/MusicHabitat Subscription Private506c.pdf",
   },
 };
 

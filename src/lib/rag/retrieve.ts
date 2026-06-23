@@ -1,5 +1,5 @@
-import { getAllChunks } from "./index";
-import type { RetrievedChunk, SourceCitation } from "./types";
+import { getChunksForTrack } from "./index";
+import type { AssistantTrack, RetrievedChunk, SourceCitation } from "./types";
 
 const DEFAULT_TOP_K = 8;
 const MIN_SCORE = 0.25;
@@ -23,9 +23,16 @@ function cosineSimilarity(a: number[], b: number[]): number {
 
 export async function retrieveRelevantChunks(
   queryEmbedding: number[],
+  track: AssistantTrack,
   topK = DEFAULT_TOP_K,
 ): Promise<RetrievedChunk[]> {
-  const chunks = getAllChunks();
+  const chunks = getChunksForTrack(track);
+
+  if (!chunks.length) {
+    throw new Error(
+      `RAG index has no chunks for track "${track}". Run npm run rag:ingest.`,
+    );
+  }
 
   const scored = chunks.map((chunk) => ({
     text: chunk.text,
@@ -44,16 +51,22 @@ export async function retrieveRelevantChunks(
   return filtered;
 }
 
+function displayFilename(sourceFile: string): string {
+  const parts = sourceFile.split("/");
+  return parts[parts.length - 1] || sourceFile;
+}
+
 export function chunksToSources(chunks: RetrievedChunk[]): SourceCitation[] {
   const seen = new Set<string>();
   const sources: SourceCitation[] = [];
 
   for (const chunk of chunks) {
-    const key = `${chunk.metadata.sourceFile}:${chunk.metadata.page}`;
+    const filename = displayFilename(chunk.metadata.sourceFile);
+    const key = `${chunk.metadata.sourceUrl}:${chunk.metadata.page}`;
     if (seen.has(key)) continue;
     seen.add(key);
     sources.push({
-      filename: chunk.metadata.sourceFile,
+      filename,
       page: chunk.metadata.page >= 0 ? chunk.metadata.page : undefined,
       url: chunk.metadata.sourceUrl,
     });
@@ -69,7 +82,8 @@ export function formatContextBlock(chunks: RetrievedChunk[]): string {
     .map((chunk, i) => {
       const page =
         chunk.metadata.page >= 0 ? `, page ${chunk.metadata.page}` : "";
-      return `[${i + 1}] ${chunk.metadata.sourceFile}${page}\n${chunk.text}`;
+      const name = displayFilename(chunk.metadata.sourceFile);
+      return `[${i + 1}] ${name}${page}\n${chunk.text}`;
     })
     .join("\n\n---\n\n");
 }

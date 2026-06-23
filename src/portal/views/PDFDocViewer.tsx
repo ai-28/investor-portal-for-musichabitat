@@ -9,7 +9,8 @@ import { Btn } from "@/portal/ui/Button";
 import { Card } from "@/portal/ui/Card";
 
 import { downloadExecSummaryPDF, downloadTermSheetPDF, pdfSourceKey } from "@/portal/lib/pdf";
-import { DOC_SOURCES } from "@/portal/data/doc-config";
+import { getDocSource } from "@/portal/data/doc-config";
+import type { OfferingType } from "@/lib/portal/db-types";
 
 function downloadPdf(src: string, filename: string) {
   const a = document.createElement("a");
@@ -21,29 +22,60 @@ function downloadPdf(src: string, filename: string) {
   document.body.removeChild(a);
 }
 
-function pdfDownloadName(sourceKey: string, src: string) {
+function pdfDownloadName(sourceKey: string, src: string, track: OfferingType) {
   const known: Record<string, string> = {
-    execsum: "MusicHabitat_Executive_Summary_FF.pdf",
-    term_sheet: "MusicHabitat_TermSheet_Private506c.pdf",
+    execsum:
+      track === "private"
+        ? "MusicHabitat_ExecSummary_Private506c.pdf"
+        : "MusicHabitat_Executive_Summary_FF.pdf",
+    term_sheet:
+      track === "private"
+        ? "MusicHabitat_TermSheet_Private506c.pdf"
+        : "MusicHabitat_TermSheet_FF.pdf",
     bizplan: "MusicHabitat_BusinessPlan.pdf",
-    deck: "MusicHabitat_FF_PitchDeck.pdf",
+    deck:
+      track === "private"
+        ? "MusicHabitat_PitchDeck_Private506c.pdf"
+        : "MusicHabitat_FF_PitchDeck.pdf",
     model: "MusicHabitat_Financial_Model.pdf",
     services: "MusicHabitat_StageBid_Services.pdf",
     proceeds: "MusicHabitat_Use_of_Proceeds.pdf",
-    safe: "MusicHabitat_SAFE_Private506c.pdf",
-    warrant: "MusicHabitat_Warrant_Private506c.pdf",
-    operating: "MusicHabitat_Operating_Agreement.pdf",
-    subscription: "MusicHabitat_Subscription_Private506c.pdf",
+    safe:
+      track === "private"
+        ? "MusicHabitat_SAFE_Private506c.pdf"
+        : "MusicHabitat_SAFE_Agreement_UPDATED.pdf",
+    warrant:
+      track === "private"
+        ? "MusicHabitat_Warrant_Private506c.pdf"
+        : "MusicHabitat_Warrant_Agreement_UPDATED.pdf",
+    operating:
+      track === "private"
+        ? "MusicHabitat_Operating_Agreement.pdf"
+        : "MusicHabitat_Operating_Agreement_FF.pdf",
+    subscription:
+      track === "private"
+        ? "MusicHabitat_Subscription_Private506c.pdf"
+        : "MusicHabitat_Subscription_FF.pdf",
   };
   if (known[sourceKey]) return known[sourceKey];
   const file = decodeURIComponent(src.split("/").pop() || "document.pdf");
   return file.replace(/\s+/g, "_");
 }
 
-export function PDFDocViewer({ docId, title, onBack }) {
+export function PDFDocViewer({
+  docId,
+  title,
+  onBack,
+  track = "friends_family",
+}: {
+  docId: string;
+  title: string;
+  onBack: () => void;
+  track?: OfferingType;
+}) {
   const sourceKey = pdfSourceKey(docId);
-  const src = DOC_SOURCES[sourceKey] || "";
-  const downloadName = pdfDownloadName(sourceKey, src);
+  const src = getDocSource(track, sourceKey) || "";
+  const downloadName = pdfDownloadName(sourceKey, src, track);
 
   return (
     <Shell onBack={onBack}>
@@ -100,7 +132,7 @@ export function PDFDocViewer({ docId, title, onBack }) {
           <div style={{ marginTop: 16 }}>
             <Btn variant="amber" onClick={() => {
               if (pdfSourceKey(docId) === "execsum") downloadExecSummaryPDF();
-              else downloadTermSheetPDF();
+              else downloadTermSheetPDF(track);
             }}>Download PDF</Btn>
           </div>
         </Card>

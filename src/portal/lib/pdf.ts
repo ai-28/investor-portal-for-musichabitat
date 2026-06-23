@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { C, FONT_DISPLAY, FONT_BODY } from "@/portal/tokens";
 import { EXEC_SUMMARY } from "@/portal/data/content";
-import { HOSTED_EXEC_SUMMARY_URL, DOC_SOURCES, PDF_RENDER_IDS } from "@/portal/data/doc-config";
+import { HOSTED_EXEC_SUMMARY_URL, getDocSource } from "@/portal/data/doc-config";
+import type { OfferingType } from "@/lib/portal/db-types";
 import { READER_CONTENT } from "@/portal/data/reader-content";
 import { VERBATIM } from "@/portal/data/verbatim";
 import { resolveDocKey } from "@/portal/data/doc-aliases";
@@ -105,8 +106,9 @@ export function pdfSourceKey(docId) {
 
 // Generates a print-ready Term Sheet PDF in-browser from the canonical terms,
 // used until a hosted signed PDF is set in DOC_SOURCES.term_sheet.
-export function downloadTermSheetPDF() {
-  if (DOC_SOURCES.term_sheet) { window.open(DOC_SOURCES.term_sheet, "_blank"); return; }
+export function downloadTermSheetPDF(track: OfferingType = "friends_family") {
+  const url = getDocSource(track, "term_sheet");
+  if (url) { window.open(url, "_blank"); return; }
   const rows = [
     ["Issuer", "Music Habitat, Inc., a Montana corporation"],
     ["Round", "Friends & Family · The Circle 35"],
@@ -175,9 +177,10 @@ export function downloadTermSheetPDF() {
 // PDFDocViewer — real PDF render with hosted-URL / data-URI hook
 // =============================================================================
 
-export function downloadReaderDoc(docId) {
+export function downloadReaderDoc(docId: string, track: OfferingType = "friends_family") {
   const key = resolveDocKey(docId);
-  if (DOC_SOURCES[key]) { window.open(DOC_SOURCES[key], "_blank"); return; }
+  const pdfUrl = getDocSource(track, key);
+  if (pdfUrl) { window.open(pdfUrl, "_blank"); return; }
 
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const V = VERBATIM[key];

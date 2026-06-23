@@ -5,6 +5,8 @@ export type ChunkMetadata = {
   sourceUrl: string;
   page: number;
   chunkIndex: number;
+  /** Offering track — set at ingest from folder (F & F vs Private Offering). */
+  track: AssistantTrack;
 };
 
 export type IndexedChunk = {

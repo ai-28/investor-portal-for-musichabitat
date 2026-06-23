@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     const lastUser = messages[messages.length - 1].content;
     const queryEmbedding = await embedQuery(lastUser);
-    const chunks = await retrieveRelevantChunks(queryEmbedding);
+    const chunks = await retrieveRelevantChunks(queryEmbedding, track);
 
     if (!chunks.length) {
       return NextResponse.json({ text: FALLBACK, sources: [] });

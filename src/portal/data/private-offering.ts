@@ -6,7 +6,6 @@ export const PRIVATE = {
   shareClass: "Class B Preferred",
   docs: {
     company: [
-      { id: "termsheet_i", name: "Term Sheet", action: "download" },
       { id: "execsum", name: "Executive Summary", action: "download" },
       { id: "deck", name: "Pitch Deck", action: "view" },
       { id: "bizplan", name: "Business Plan", action: "view" },

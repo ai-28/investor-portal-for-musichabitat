@@ -50,9 +50,12 @@ export function PortalScreen() {
     psigned,
     setPsigned,
     acceptNda,
+    offeringType,
   } = usePortal();
 
-  const docBackRoute = route.startsWith("pp_") ? "pp_docs" : "page5";
+  const docTrack: "friends_family" | "private" =
+    offeringType === "private" ? "private" : "friends_family";
+  const docBackRoute = docTrack === "private" ? "pp_docs" : "page5";
 
   if (route === "execsum_reader") {
     return <ExecSummaryView onBack={() => go("page1")} />;
@@ -60,7 +63,9 @@ export function PortalScreen() {
 
   if (route.startsWith("doc_view:")) {
     const docId = route.slice("doc_view:".length);
-    return <DocViewer docId={docId} onBack={() => go(docBackRoute)} />;
+    return (
+      <DocViewer docId={docId} track={docTrack} onBack={() => go(docBackRoute)} />
+    );
   }
 
   switch (route) {
