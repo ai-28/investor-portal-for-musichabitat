@@ -39,38 +39,3 @@ export async function sendTransactionalEmail(params: {
     return false;
   }
 }
-
-export async function sendNdaCountersignEmails(params: {
-  investorEmail?: string;
-  ceoEmail: string;
-  ceoSignUrl: string;
-  docLabel: string;
-  portalUrl: string;
-}): Promise<{ investor: boolean; ceo: boolean }> {
-  const ceoHtml = `
-    <p>An investor has signed the <strong>${params.docLabel}</strong>.</p>
-    <p><a href="${params.ceoSignUrl}">Countersign ${params.docLabel} in DocuSign</a></p>
-    <p>This link stays valid until you countersign. Go to the last page, use Add Fields to place Signature / Date / Text on the Music Habitat column (left), then Finish.</p>
-  `;
-
-  const ceoSent = await sendTransactionalEmail({
-    to: params.ceoEmail,
-    subject: `Countersign required — ${params.docLabel}`,
-    html: ceoHtml,
-  });
-
-  let investorSent = false;
-  if (params.investorEmail) {
-    investorSent = await sendTransactionalEmail({
-      to: params.investorEmail,
-      subject: `You signed — ${params.docLabel}`,
-      html: `
-        <p>Thank you for signing the ${params.docLabel}.</p>
-        <p>The CEO will countersign shortly. You can return to the portal to download the current PDF:</p>
-        <p><a href="${params.portalUrl}">${params.portalUrl}</a></p>
-      `,
-    });
-  }
-
-  return { investor: investorSent, ceo: ceoSent };
-}

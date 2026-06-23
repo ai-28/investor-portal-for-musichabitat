@@ -66,7 +66,7 @@ export async function POST(request: Request) {
         } catch {
           /* URL optional */
         }
-        message = `Countersign link ready for ${DOCUSIGN_CEO_EMAIL}. If Gmail is empty, use the link below or set RESEND_API_KEY.`;
+        message = `DocuSign countersign notification sent to ${DOCUSIGN_CEO_EMAIL}. If email is delayed, use the CEO link below.`;
       } else {
         message = "Completion notifications sent.";
       }
