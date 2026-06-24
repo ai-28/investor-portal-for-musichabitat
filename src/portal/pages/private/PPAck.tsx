@@ -22,7 +22,6 @@ import { CEO_VIDEO_URL, CEO_VIDEO_KIND, WELCOME_BG } from "@/portal/data/media";
 import { DOCUSIGN, FUNDING, CALENDLY_URL } from "@/portal/data/doc-config";
 import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
-import { skipProgressGates } from "@/portal/lib/demo";
 
 export function PPAck({ go, onBack, packs, setPacks }) {
   const ITEMS = [
@@ -58,10 +57,10 @@ export function PPAck({ go, onBack, packs, setPacks }) {
         </Card>
       ))}
 
-      <Btn variant="teal" disabled={!skipProgressGates() && !allChecked} onClick={() => go("pp_sign")}>
+      <Btn variant="teal" disabled={!allChecked} onClick={() => go("pp_sign")}>
         Continue to Signing
       </Btn>
-      {!skipProgressGates() && !allChecked && (
+      {!allChecked && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
           Confirm all acknowledgements to continue.
         </p>

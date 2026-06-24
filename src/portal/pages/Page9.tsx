@@ -22,8 +22,6 @@ import { STOCK_CERT_IMG } from "@/portal/data/photos";
 import { achInput } from "@/portal/lib/ach";
 import { achLabel, achErr } from "@/portal/data/ach-labels";
 
-import { skipProgressGates } from "@/portal/lib/demo";
-
 export function Page9({ go, onBack, acks, setAcks }) {
   const ITEMS = [
     ["speculative", "I understand this is a speculative, illiquid investment and I could lose my entire investment."],
@@ -59,7 +57,7 @@ export function Page9({ go, onBack, acks, setAcks }) {
 
       <Btn
         variant="amber"
-        disabled={!skipProgressGates() && !allChecked}
+        disabled={!allChecked}
         onClick={() => {
           void go("page10", {
             patch: { application_status: "submitted", acks },
@@ -68,7 +66,7 @@ export function Page9({ go, onBack, acks, setAcks }) {
       >
         Continue to Signing
       </Btn>
-      {!skipProgressGates() && !allChecked && (
+      {!allChecked && (
         <p style={{ textAlign: "center", color: C.textFaint, fontSize: 12, marginTop: 8 }}>
           Confirm all acknowledgements to continue.
         </p>
